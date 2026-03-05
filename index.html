@@ -5,7 +5,6 @@
 <title>インベーダーゲーム</title>
 
 <style>
-
 body{
 background:black;
 color:white;
@@ -18,7 +17,6 @@ background:#111;
 border:2px solid white;
 image-rendering:pixelated;
 }
-
 </style>
 </head>
 
@@ -59,6 +57,8 @@ let gameOver=false;
 let lastShot=0;
 let shotCooldown=90;
 
+const MOVE=15;
+
 function spawnEnemies(){
 
 enemies=[];
@@ -86,8 +86,8 @@ function spawnBoss(){
 boss={
 x:240,
 y:80,
-w:120,
-h:80,
+w:80,
+h:60,
 hp:60,
 vx:2
 };
@@ -100,8 +100,10 @@ document.addEventListener("keydown",e=>{
 
 if(gameOver)return;
 
-if(e.key==="ArrowLeft") player.x-=35;
-if(e.key==="ArrowRight") player.x+=35;
+if(e.key==="ArrowLeft") player.x-=MOVE;
+if(e.key==="ArrowRight") player.x+=MOVE;
+
+player.x=Math.max(0,Math.min(580,player.x));
 
 if(e.key===" "){
 
@@ -109,11 +111,7 @@ let now=Date.now();
 
 if(now-lastShot>shotCooldown){
 
-bullets.push({
-x:player.x+10,
-y:player.y
-});
-
+bullets.push({x:player.x+10,y:player.y});
 lastShot=now;
 
 }
@@ -145,13 +143,8 @@ enemyBullets.splice(i,1);
 
 if(b.type==="bounce"){
 
-if(b.x<0||b.x>600){
-b.vx*=-1;
-}
-
-if(b.y<0){
-b.vy*=-1;
-}
+if(b.x<0||b.x>600) b.vx*=-1;
+if(b.y<0) b.vy*=-1;
 
 }
 
@@ -162,7 +155,8 @@ enemies.forEach(e=>{
 e.x+=e.vx;
 e.y+=e.vy;
 
-if(e.x<0||e.x>580) e.vx*=-1;
+if(e.x<0){e.x=0;e.vx*=-1;}
+if(e.x>580){e.x=580;e.vx*=-1;}
 
 if(Math.random()<0.01+phase*0.003){
 
@@ -189,13 +183,12 @@ b.y<e.y+20 &&
 b.y+10>e.y
 ){
 
-createExplosion(e.x,e.y);
+createExplosion(e.x,e.y,10);
 
 enemies.splice(ei,1);
 bullets.splice(bi,1);
 
 score+=100;
-
 document.getElementById("score").textContent=score;
 
 }
@@ -208,9 +201,7 @@ if(boss){
 
 boss.x+=boss.vx;
 
-if(boss.x<0||boss.x+boss.w>600){
-boss.vx*=-1;
-}
+if(boss.x<0||boss.x+boss.w>600) boss.vx*=-1;
 
 let r=Math.random();
 
@@ -224,8 +215,7 @@ vy:4,
 type:"split"
 });
 
-}
-else if(r<0.035){
+}else if(r<0.035){
 
 enemyBullets.push({
 x:boss.x+boss.w/2,
@@ -235,12 +225,11 @@ vy:3,
 type:"bounce"
 });
 
-}
-else if(r<0.045){
+}else if(r<0.045){
 
 enemies.push({
-x:boss.x+Math.random()*100-50,
-y:boss.y+80,
+x:boss.x+Math.random()*80,
+y:boss.y+60,
 vx:(Math.random()-0.5)*3,
 vy:1
 });
@@ -260,9 +249,11 @@ boss.hp--;
 
 bullets.splice(bi,1);
 
-createExplosion(b.x,b.y);
+createExplosion(b.x,b.y,6);
 
 if(boss.hp<=0){
+
+createExplosion(boss.x+40,boss.y+30,40);
 
 score+=5000;
 boss=null;
@@ -290,9 +281,7 @@ damage++;
 
 document.getElementById("damage").textContent=damage;
 
-if(damage>=10){
-gameOver=true;
-}
+if(damage>=10) gameOver=true;
 
 }
 
@@ -307,9 +296,7 @@ p.x+=p.vx;
 p.y+=p.vy;
 });
 
-if(ex.life<=0){
-explosions.splice(i,1);
-}
+if(ex.life<=0) explosions.splice(i,1);
 
 });
 
@@ -329,24 +316,24 @@ spawnBoss();
 
 }
 
-function createExplosion(x,y){
+function createExplosion(x,y,count){
 
 let particles=[];
 
-for(let i=0;i<14;i++){
+for(let i=0;i<count;i++){
 
 particles.push({
 x:x,
 y:y,
-vx:(Math.random()-0.5)*5,
-vy:(Math.random()-0.5)*5
+vx:(Math.random()-0.5)*6,
+vy:(Math.random()-0.5)*6
 });
 
 }
 
 explosions.push({
 particles:particles,
-life:20
+life:30
 });
 
 }
@@ -379,6 +366,14 @@ const enemySprite=[
 [0,1,0]
 ];
 
+const bossSprite=[
+[1,1,0,0,0,1,1],
+[0,1,1,1,1,1,0],
+[1,1,1,1,1,1,1],
+[1,0,1,1,1,0,1],
+[1,1,1,1,1,1,1]
+];
+
 function draw(){
 
 ctx.clearRect(0,0,600,650);
@@ -401,8 +396,7 @@ drawPixel(e.x,e.y,enemySprite,"red");
 
 if(boss){
 
-ctx.fillStyle="purple";
-ctx.fillRect(boss.x,boss.y,boss.w,boss.h);
+drawPixel(boss.x,boss.y,bossSprite,"purple");
 
 ctx.fillStyle="white";
 ctx.fillText("BOSS HP "+boss.hp,boss.x,boss.y-10);
@@ -433,7 +427,6 @@ function loop(){
 
 update();
 draw();
-
 requestAnimationFrame(loop);
 
 }

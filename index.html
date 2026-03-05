@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <title>インベーダーゲーム</title>
-<style>
 
+<style>
 body{
 background:black;
 color:white;
@@ -15,9 +15,10 @@ font-family:sans-serif;
 canvas{
 background:#111;
 border:2px solid white;
+image-rendering: pixelated;
 }
-
 </style>
+
 </head>
 <body>
 
@@ -25,8 +26,7 @@ border:2px solid white;
 
 <p>
 スコア: <span id="score">0</span>
-　ステージ: <span id="stage">1</span>
-　ダメージ: <span id="damage">0</span>/10
+ダメージ: <span id="damage">0</span>/10
 </p>
 
 <p>← → 移動 / スペース 攻撃</p>
@@ -38,15 +38,14 @@ border:2px solid white;
 const canvas=document.getElementById("game");
 const ctx=canvas.getContext("2d");
 
-let player={x:230,y:560,w:40,h:20};
+let player={x:240,y:560};
 
 let bullets=[];
 let enemyBullets=[];
 let enemies=[];
-let shields=[];
+let explosions=[];
 
 let score=0;
-let stage=1;
 let damage=0;
 
 let enemyDir=1;
@@ -54,54 +53,33 @@ let enemyDir=1;
 let gameOver=false;
 
 let lastShot=0;
-let shotCooldown=120;
+let shotCooldown=80;
 
 function createEnemies(){
 
 enemies=[];
 
-for(let i=0;i<8;i++){
-for(let j=0;j<4;j++){
+for(let i=0;i<7;i++){
+for(let j=0;j<3;j++){
 
 enemies.push({
-x:60+i*50,
-y:40+j*40,
-w:30,
-h:20
+x:80+i*50,
+y:50+j*40
 });
 
 }
-}
-
-}
-
-function createShields(){
-
-shields=[];
-
-for(let i=0;i<4;i++){
-
-shields.push({
-x:80+i*100,
-y:450,
-w:50,
-h:30,
-hp:10
-});
-
 }
 
 }
 
 createEnemies();
-createShields();
 
 document.addEventListener("keydown",e=>{
 
 if(gameOver)return;
 
-if(e.key==="ArrowLeft") player.x-=25;
-if(e.key==="ArrowRight") player.x+=25;
+if(e.key==="ArrowLeft") player.x-=30;
+if(e.key==="ArrowRight") player.x+=30;
 
 if(e.key===" "){
 
@@ -109,7 +87,7 @@ let now=Date.now();
 
 if(now-lastShot>shotCooldown){
 
-bullets.push({x:player.x+18,y:player.y});
+bullets.push({x:player.x+10,y:player.y});
 lastShot=now;
 
 }
@@ -122,26 +100,24 @@ function update(){
 
 if(gameOver)return;
 
-bullets.forEach(b=>b.y-=8);
-enemyBullets.forEach(b=>b.y+=5+stage);
+bullets.forEach(b=>b.y-=9);
+enemyBullets.forEach(b=>b.y+=3);
 
 let moveDown=false;
 
 enemies.forEach(e=>{
 
-e.x+=enemyDir*(1+stage*0.3);
+e.x+=enemyDir;
 
-if(e.x<0||e.x+e.w>500){
-
+if(e.x<0||e.x>470){
 moveDown=true;
-
 }
 
-if(Math.random()<0.01+stage*0.003){
+if(Math.random()<0.004){
 
 enemyBullets.push({
-x:e.x+15,
-y:e.y+20
+x:e.x+10,
+y:e.y+15
 });
 
 }
@@ -160,16 +136,19 @@ bullets.forEach((b,bi)=>{
 
 enemies.forEach((e,ei)=>{
 
-if(b.x<e.x+e.w &&
+if(
+b.x<e.x+20 &&
 b.x+4>e.x &&
-b.y<e.y+e.h &&
-b.y+10>e.y){
+b.y<e.y+20 &&
+b.y+10>e.y
+){
+
+createExplosion(e.x+10,e.y+10);
 
 enemies.splice(ei,1);
 bullets.splice(bi,1);
 
 score+=100;
-
 document.getElementById("score").textContent=score;
 
 }
@@ -180,10 +159,12 @@ document.getElementById("score").textContent=score;
 
 enemyBullets.forEach((b,bi)=>{
 
-if(b.x<player.x+player.w &&
+if(
+b.x<player.x+20 &&
 b.x+4>player.x &&
-b.y<player.y+player.h &&
-b.y+10>player.y){
+b.y<player.y+20 &&
+b.y+10>player.y
+){
 
 enemyBullets.splice(bi,1);
 
@@ -192,102 +173,109 @@ damage++;
 document.getElementById("damage").textContent=damage;
 
 if(damage>=10){
-
 gameOver=true;
-
 }
 
 }
 
 });
 
-shields.forEach((s,si)=>{
+explosions.forEach((ex,i)=>{
 
-bullets.forEach((b,bi)=>{
+ex.life--;
 
-if(b.x<s.x+s.w &&
-b.x+4>s.x &&
-b.y<s.y+s.h &&
-b.y+10>s.y){
+ex.particles.forEach(p=>{
+p.x+=p.vx;
+p.y+=p.vy;
+});
 
-s.hp--;
-bullets.splice(bi,1);
-
-if(s.hp<=0){
-
-shields.splice(si,1);
-
-}
-
+if(ex.life<=0){
+explosions.splice(i,1);
 }
 
 });
 
-enemyBullets.forEach((b,bi)=>{
-
-if(b.x<s.x+s.w &&
-b.x+4>s.x &&
-b.y<s.y+s.h &&
-b.y+10>s.y){
-
-s.hp--;
-enemyBullets.splice(bi,1);
-
-if(s.hp<=0){
-
-shields.splice(si,1);
-
 }
 
-}
+function createExplosion(x,y){
 
+let particles=[];
+
+for(let i=0;i<12;i++){
+
+particles.push({
+x:x,
+y:y,
+vx:(Math.random()-0.5)*4,
+vy:(Math.random()-0.5)*4
 });
 
+}
+
+explosions.push({
+particles:particles,
+life:20
 });
 
-if(enemies.length===0){
+}
 
-stage++;
+function drawPixelArt(x,y,pattern,color){
 
-document.getElementById("stage").textContent=stage;
+ctx.fillStyle=color;
 
-createEnemies();
-createShields();
+for(let r=0;r<pattern.length;r++){
+for(let c=0;c<pattern[r].length;c++){
+
+if(pattern[r][c]==1){
+
+ctx.fillRect(x+c*3,y+r*3,3,3);
 
 }
 
 }
+}
+
+}
+
+const playerSprite=[
+[0,1,0],
+[1,1,1],
+[1,1,1]
+];
+
+const enemySprite=[
+[1,0,1],
+[1,1,1],
+[0,1,0]
+];
 
 function draw(){
 
 ctx.clearRect(0,0,500,600);
 
-ctx.fillStyle="lime";
-ctx.fillRect(player.x,player.y,player.w,player.h);
-
-ctx.fillStyle="yellow";
+drawPixelArt(player.x,player.y,playerSprite,"lime");
 
 bullets.forEach(b=>{
-ctx.fillRect(b.x,b.y,4,10);
+ctx.fillStyle="yellow";
+ctx.fillRect(b.x,b.y,3,8);
 });
-
-ctx.fillStyle="red";
-
-enemies.forEach(e=>{
-ctx.fillRect(e.x,e.y,e.w,e.h);
-});
-
-ctx.fillStyle="white";
 
 enemyBullets.forEach(b=>{
-ctx.fillRect(b.x,b.y,4,10);
+ctx.fillStyle="white";
+ctx.fillRect(b.x,b.y,3,8);
 });
 
-ctx.fillStyle="cyan";
+enemies.forEach(e=>{
+drawPixelArt(e.x,e.y,enemySprite,"red");
+});
 
-shields.forEach(s=>{
+explosions.forEach(ex=>{
 
-ctx.fillRect(s.x,s.y,s.w,s.h);
+ctx.fillStyle="orange";
+
+ex.particles.forEach(p=>{
+ctx.fillRect(p.x,p.y,3,3);
+});
 
 });
 

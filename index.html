@@ -5,9 +5,9 @@
 <title>インベーダーゲーム</title>
 <style>
 body{
-    text-align:center;
     background:black;
     color:white;
+    text-align:center;
 }
 canvas{
     background:#111;
@@ -18,33 +18,70 @@ canvas{
 <body>
 
 <h1>インベーダーゲーム</h1>
-<p>← → で移動 / スペースで発射</p>
+<p>← → 移動 / スペース 攻撃</p>
+<p>ダメージ: <span id="damage">0</span> / 10</p>
 
 <canvas id="game" width="400" height="500"></canvas>
 
 <script>
+
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
 
 let player = {x:180,y:460,w:40,h:20};
 let bullets = [];
+let enemyBullets = [];
 let enemies = [];
 
-for(let i=0;i<5;i++){
+let enemyDir = 1;
+let damage = 0;
+let gameOver = false;
+
+for(let i=0;i<6;i++){
  for(let j=0;j<3;j++){
-  enemies.push({x:60+i*60,y:40+j*40,w:30,h:20});
+  enemies.push({x:50+i*50,y:40+j*40,w:30,h:20});
  }
 }
 
 document.addEventListener("keydown",e=>{
+
+ if(gameOver) return;
+
  if(e.key==="ArrowLeft") player.x-=20;
  if(e.key==="ArrowRight") player.x+=20;
- if(e.key===" ") bullets.push({x:player.x+18,y:player.y});
+
+ if(e.key===" "){
+  bullets.push({x:player.x+18,y:player.y});
+ }
+
 });
 
 function update(){
 
- bullets.forEach(b=>b.y-=5);
+ if(gameOver) return;
+
+ bullets.forEach(b=>b.y-=6);
+ enemyBullets.forEach(b=>b.y+=4);
+
+ let moveDown=false;
+
+ enemies.forEach(e=>{
+  e.x+=enemyDir;
+
+  if(e.x<0 || e.x+e.w>400){
+   moveDown=true;
+  }
+
+  if(Math.random()<0.002){
+   enemyBullets.push({x:e.x+15,y:e.y+20});
+  }
+
+ });
+
+ if(moveDown){
+  enemyDir*=-1;
+  enemies.forEach(e=>e.y+=20);
+ }
 
  bullets.forEach((b,bi)=>{
   enemies.forEach((e,ei)=>{
@@ -53,6 +90,26 @@ function update(){
     bullets.splice(bi,1);
    }
   });
+ });
+
+ enemyBullets.forEach((b,bi)=>{
+
+  if(b.x<player.x+player.w &&
+     b.x+4>player.x &&
+     b.y<player.y+player.h &&
+     b.y+10>player.y){
+
+     enemyBullets.splice(bi,1);
+     damage++;
+
+     document.getElementById("damage").textContent=damage;
+
+     if(damage>=10){
+      gameOver=true;
+     }
+
+  }
+
  });
 
 }
@@ -74,15 +131,29 @@ function draw(){
   ctx.fillRect(e.x,e.y,e.w,e.h);
  });
 
+ ctx.fillStyle="white";
+ enemyBullets.forEach(b=>{
+  ctx.fillRect(b.x,b.y,4,10);
+ });
+
+ if(gameOver){
+
+  ctx.fillStyle="white";
+  ctx.font="40px sans-serif";
+  ctx.fillText("GAME OVER",90,250);
+
+ }
+
 }
 
-function gameLoop(){
+function loop(){
  update();
  draw();
- requestAnimationFrame(gameLoop);
+ requestAnimationFrame(loop);
 }
 
-gameLoop();
+loop();
+
 </script>
 
 </body>

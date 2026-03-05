@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>インベーダーゲーム</title>
+<style>
+body{
+    text-align:center;
+    background:black;
+    color:white;
+}
+canvas{
+    background:#111;
+    border:2px solid white;
+}
+</style>
+</head>
+<body>
+
+<h1>インベーダーゲーム</h1>
+<p>← → で移動 / スペースで発射</p>
+
+<canvas id="game" width="400" height="500"></canvas>
+
+<script>
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
+
+let player = {x:180,y:460,w:40,h:20};
+let bullets = [];
+let enemies = [];
+
+for(let i=0;i<5;i++){
+ for(let j=0;j<3;j++){
+  enemies.push({x:60+i*60,y:40+j*40,w:30,h:20});
+ }
+}
+
+document.addEventListener("keydown",e=>{
+ if(e.key==="ArrowLeft") player.x-=20;
+ if(e.key==="ArrowRight") player.x+=20;
+ if(e.key===" ") bullets.push({x:player.x+18,y:player.y});
+});
+
+function update(){
+
+ bullets.forEach(b=>b.y-=5);
+
+ bullets.forEach((b,bi)=>{
+  enemies.forEach((e,ei)=>{
+   if(b.x<e.x+e.w && b.x+4>e.x && b.y<e.y+e.h && b.y+10>e.y){
+    enemies.splice(ei,1);
+    bullets.splice(bi,1);
+   }
+  });
+ });
+
+}
+
+function draw(){
+
+ ctx.clearRect(0,0,400,500);
+
+ ctx.fillStyle="lime";
+ ctx.fillRect(player.x,player.y,player.w,player.h);
+
+ ctx.fillStyle="yellow";
+ bullets.forEach(b=>{
+  ctx.fillRect(b.x,b.y,4,10);
+ });
+
+ ctx.fillStyle="red";
+ enemies.forEach(e=>{
+  ctx.fillRect(e.x,e.y,e.w,e.h);
+ });
+
+}
+
+function gameLoop(){
+ update();
+ draw();
+ requestAnimationFrame(gameLoop);
+}
+
+gameLoop();
+</script>
+
+</body>
+</html>

@@ -4,152 +4,310 @@
 <meta charset="UTF-8">
 <title>インベーダーゲーム</title>
 <style>
+
 body{
-    background:black;
-    color:white;
-    text-align:center;
+background:black;
+color:white;
+text-align:center;
+font-family:sans-serif;
 }
+
 canvas{
-    background:#111;
-    border:2px solid white;
+background:#111;
+border:2px solid white;
 }
+
 </style>
 </head>
 <body>
 
-<h1>インベーダーゲーム</h1>
-<p>← → 移動 / スペース 攻撃</p>
-<p>ダメージ: <span id="damage">0</span> / 10</p>
+<h2>インベーダーゲーム</h2>
 
-<canvas id="game" width="400" height="500"></canvas>
+<p>
+スコア: <span id="score">0</span>
+　ステージ: <span id="stage">1</span>
+　ダメージ: <span id="damage">0</span>/10
+</p>
+
+<p>← → 移動 / スペース 攻撃</p>
+
+<canvas id="game" width="500" height="600"></canvas>
 
 <script>
 
-const canvas = document.getElementById("game");
-const ctx = canvas.getContext("2d");
+const canvas=document.getElementById("game");
+const ctx=canvas.getContext("2d");
 
-let player = {x:180,y:460,w:40,h:20};
-let bullets = [];
-let enemyBullets = [];
-let enemies = [];
+let player={x:230,y:560,w:40,h:20};
 
-let enemyDir = 1;
-let damage = 0;
-let gameOver = false;
+let bullets=[];
+let enemyBullets=[];
+let enemies=[];
+let shields=[];
 
-for(let i=0;i<6;i++){
- for(let j=0;j<3;j++){
-  enemies.push({x:50+i*50,y:40+j*40,w:30,h:20});
- }
+let score=0;
+let stage=1;
+let damage=0;
+
+let enemyDir=1;
+
+let gameOver=false;
+
+let lastShot=0;
+let shotCooldown=120;
+
+function createEnemies(){
+
+enemies=[];
+
+for(let i=0;i<8;i++){
+for(let j=0;j<4;j++){
+
+enemies.push({
+x:60+i*50,
+y:40+j*40,
+w:30,
+h:20
+});
+
 }
+}
+
+}
+
+function createShields(){
+
+shields=[];
+
+for(let i=0;i<4;i++){
+
+shields.push({
+x:80+i*100,
+y:450,
+w:50,
+h:30,
+hp:10
+});
+
+}
+
+}
+
+createEnemies();
+createShields();
 
 document.addEventListener("keydown",e=>{
 
- if(gameOver) return;
+if(gameOver)return;
 
- if(e.key==="ArrowLeft") player.x-=20;
- if(e.key==="ArrowRight") player.x+=20;
+if(e.key==="ArrowLeft") player.x-=25;
+if(e.key==="ArrowRight") player.x+=25;
 
- if(e.key===" "){
-  bullets.push({x:player.x+18,y:player.y});
- }
+if(e.key===" "){
+
+let now=Date.now();
+
+if(now-lastShot>shotCooldown){
+
+bullets.push({x:player.x+18,y:player.y});
+lastShot=now;
+
+}
+
+}
 
 });
 
 function update(){
 
- if(gameOver) return;
+if(gameOver)return;
 
- bullets.forEach(b=>b.y-=6);
- enemyBullets.forEach(b=>b.y+=4);
+bullets.forEach(b=>b.y-=8);
+enemyBullets.forEach(b=>b.y+=5+stage);
 
- let moveDown=false;
+let moveDown=false;
 
- enemies.forEach(e=>{
-  e.x+=enemyDir;
+enemies.forEach(e=>{
 
-  if(e.x<0 || e.x+e.w>400){
-   moveDown=true;
-  }
+e.x+=enemyDir*(1+stage*0.3);
 
-  if(Math.random()<0.002){
-   enemyBullets.push({x:e.x+15,y:e.y+20});
-  }
+if(e.x<0||e.x+e.w>500){
 
- });
+moveDown=true;
 
- if(moveDown){
-  enemyDir*=-1;
-  enemies.forEach(e=>e.y+=20);
- }
+}
 
- bullets.forEach((b,bi)=>{
-  enemies.forEach((e,ei)=>{
-   if(b.x<e.x+e.w && b.x+4>e.x && b.y<e.y+e.h && b.y+10>e.y){
-    enemies.splice(ei,1);
-    bullets.splice(bi,1);
-   }
-  });
- });
+if(Math.random()<0.01+stage*0.003){
 
- enemyBullets.forEach((b,bi)=>{
+enemyBullets.push({
+x:e.x+15,
+y:e.y+20
+});
 
-  if(b.x<player.x+player.w &&
-     b.x+4>player.x &&
-     b.y<player.y+player.h &&
-     b.y+10>player.y){
+}
 
-     enemyBullets.splice(bi,1);
-     damage++;
+});
 
-     document.getElementById("damage").textContent=damage;
+if(moveDown){
 
-     if(damage>=10){
-      gameOver=true;
-     }
+enemyDir*=-1;
 
-  }
+enemies.forEach(e=>e.y+=20);
 
- });
+}
+
+bullets.forEach((b,bi)=>{
+
+enemies.forEach((e,ei)=>{
+
+if(b.x<e.x+e.w &&
+b.x+4>e.x &&
+b.y<e.y+e.h &&
+b.y+10>e.y){
+
+enemies.splice(ei,1);
+bullets.splice(bi,1);
+
+score+=100;
+
+document.getElementById("score").textContent=score;
+
+}
+
+});
+
+});
+
+enemyBullets.forEach((b,bi)=>{
+
+if(b.x<player.x+player.w &&
+b.x+4>player.x &&
+b.y<player.y+player.h &&
+b.y+10>player.y){
+
+enemyBullets.splice(bi,1);
+
+damage++;
+
+document.getElementById("damage").textContent=damage;
+
+if(damage>=10){
+
+gameOver=true;
+
+}
+
+}
+
+});
+
+shields.forEach((s,si)=>{
+
+bullets.forEach((b,bi)=>{
+
+if(b.x<s.x+s.w &&
+b.x+4>s.x &&
+b.y<s.y+s.h &&
+b.y+10>s.y){
+
+s.hp--;
+bullets.splice(bi,1);
+
+if(s.hp<=0){
+
+shields.splice(si,1);
+
+}
+
+}
+
+});
+
+enemyBullets.forEach((b,bi)=>{
+
+if(b.x<s.x+s.w &&
+b.x+4>s.x &&
+b.y<s.y+s.h &&
+b.y+10>s.y){
+
+s.hp--;
+enemyBullets.splice(bi,1);
+
+if(s.hp<=0){
+
+shields.splice(si,1);
+
+}
+
+}
+
+});
+
+});
+
+if(enemies.length===0){
+
+stage++;
+
+document.getElementById("stage").textContent=stage;
+
+createEnemies();
+createShields();
+
+}
 
 }
 
 function draw(){
 
- ctx.clearRect(0,0,400,500);
+ctx.clearRect(0,0,500,600);
 
- ctx.fillStyle="lime";
- ctx.fillRect(player.x,player.y,player.w,player.h);
+ctx.fillStyle="lime";
+ctx.fillRect(player.x,player.y,player.w,player.h);
 
- ctx.fillStyle="yellow";
- bullets.forEach(b=>{
-  ctx.fillRect(b.x,b.y,4,10);
- });
+ctx.fillStyle="yellow";
 
- ctx.fillStyle="red";
- enemies.forEach(e=>{
-  ctx.fillRect(e.x,e.y,e.w,e.h);
- });
+bullets.forEach(b=>{
+ctx.fillRect(b.x,b.y,4,10);
+});
 
- ctx.fillStyle="white";
- enemyBullets.forEach(b=>{
-  ctx.fillRect(b.x,b.y,4,10);
- });
+ctx.fillStyle="red";
 
- if(gameOver){
+enemies.forEach(e=>{
+ctx.fillRect(e.x,e.y,e.w,e.h);
+});
 
-  ctx.fillStyle="white";
-  ctx.font="40px sans-serif";
-  ctx.fillText("GAME OVER",90,250);
+ctx.fillStyle="white";
 
- }
+enemyBullets.forEach(b=>{
+ctx.fillRect(b.x,b.y,4,10);
+});
+
+ctx.fillStyle="cyan";
+
+shields.forEach(s=>{
+
+ctx.fillRect(s.x,s.y,s.w,s.h);
+
+});
+
+if(gameOver){
+
+ctx.fillStyle="white";
+ctx.font="50px sans-serif";
+ctx.fillText("GAME OVER",120,300);
+
+}
 
 }
 
 function loop(){
- update();
- draw();
- requestAnimationFrame(loop);
+
+update();
+draw();
+
+requestAnimationFrame(loop);
+
 }
 
 loop();

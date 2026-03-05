@@ -2,81 +2,150 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<title>インベーダーゲーム</title>
+<title>インベーダーゲームEX</title>
 
 <style>
+
 body{
+margin:0;
 background:black;
 color:white;
-text-align:center;
 font-family:sans-serif;
+text-align:center;
 }
 
 canvas{
-background:#111;
+background:#000;
+display:block;
+margin:auto;
 border:2px solid white;
-image-rendering:pixelated;
 }
+
+#startScreen{
+position:absolute;
+top:0;
+left:0;
+right:0;
+bottom:0;
+background:black;
+display:flex;
+flex-direction:column;
+justify-content:center;
+align-items:center;
+font-size:30px;
+}
+
+.bar{
+height:10px;
+background:red;
+}
+
+#ui{
+width:600px;
+margin:auto;
+}
+
 </style>
 </head>
 
 <body>
 
-<h2>インベーダーゲーム</h2>
+<div id="startScreen">
+<h1>インベーダーゲームEX</h1>
+<p>ENTERでスタート</p>
+</div>
 
-<p>
-スコア <span id="score">0</span>
-フェーズ <span id="phase">1</span>
-ダメージ <span id="damage">0</span>/10
-</p>
+<div id="ui">
 
-<p>← → 移動　スペース 攻撃</p>
+HP
+<div style="background:#333">
+<div id="hpBar" class="bar" style="width:100%"></div>
+</div>
 
-<canvas id="game" width="600" height="650"></canvas>
+Phase
+<div style="background:#333">
+<div id="phaseBar" class="bar" style="width:0%;background:lime"></div>
+</div>
+
+</div>
+
+<canvas id="game" width="600" height="600"></canvas>
 
 <script>
 
 const canvas=document.getElementById("game");
 const ctx=canvas.getContext("2d");
 
-let player={x:290,y:600};
+let keys={};
 
+document.addEventListener("keydown",e=>{
+
+keys[e.key]=true;
+
+if(e.key=="Enter"){
+startGame();
+}
+
+});
+
+document.addEventListener("keyup",e=>keys[e.key]=false);
+
+let gameStarted=false;
+
+let player;
 let bullets=[];
 let enemyBullets=[];
 let enemies=[];
 let explosions=[];
-
 let boss=null;
 
-let score=0;
 let phase=1;
-let damage=0;
+let phaseProgress=0;
 
-let gameOver=false;
+let hp=10;
 
-let lastShot=0;
-let shotCooldown=90;
+function startGame(){
 
-const MOVE=15;
+document.getElementById("startScreen").style.display="none";
+
+gameStarted=true;
+
+init();
+
+requestAnimationFrame(loop);
+
+}
+
+function init(){
+
+player={
+x:280,
+y:520,
+w:30,
+h:30
+};
+
+spawnEnemies();
+
+}
 
 function spawnEnemies(){
 
 enemies=[];
 
-let rows=2+phase;
-let cols=6+phase;
+let count=5+phase*2;
 
-for(let y=0;y<rows;y++){
-for(let x=0;x<cols;x++){
+for(let i=0;i<count;i++){
 
 enemies.push({
-x:60+x*60,
-y:60+y*50,
+
+x:Math.random()*550,
+y:Math.random()*200+20,
 vx:(Math.random()-0.5)*2,
-vy:(Math.random()-0.5)*0.5
+vy:0.2
+
 });
 
-}
 }
 
 }
@@ -84,342 +153,13 @@ vy:(Math.random()-0.5)*0.5
 function spawnBoss(){
 
 boss={
-x:240,
-y:80,
+x:250,
+y:50,
 w:80,
-h:60,
-hp:60,
-vx:2
+h:80,
+vx:2,
+hp:50
 };
-
-}
-
-spawnEnemies();
-
-document.addEventListener("keydown",e=>{
-
-if(gameOver)return;
-
-if(e.key==="ArrowLeft") player.x-=MOVE;
-if(e.key==="ArrowRight") player.x+=MOVE;
-
-player.x=Math.max(0,Math.min(580,player.x));
-
-if(e.key===" "){
-
-let now=Date.now();
-
-if(now-lastShot>shotCooldown){
-
-bullets.push({x:player.x+10,y:player.y});
-lastShot=now;
-
-}
-
-}
-
-});
-
-function update(){
-
-if(gameOver)return;
-
-bullets.forEach(b=>b.y-=10);
-
-enemyBullets.forEach((b,i)=>{
-
-b.x+=b.vx;
-b.y+=b.vy;
-
-if(b.type==="split" && b.y>300){
-
-enemyBullets.push({x:b.x,y:b.y,vx:-3,vy:3,type:"normal"});
-enemyBullets.push({x:b.x,y:b.y,vx:3,vy:3,type:"normal"});
-enemyBullets.push({x:b.x,y:b.y,vx:0,vy:4,type:"normal"});
-
-enemyBullets.splice(i,1);
-
-}
-
-if(b.type==="bounce"){
-
-if(b.x<0||b.x>600) b.vx*=-1;
-if(b.y<0) b.vy*=-1;
-
-}
-
-});
-
-enemies.forEach(e=>{
-
-e.x+=e.vx;
-e.y+=e.vy;
-
-if(e.x<0){e.x=0;e.vx*=-1;}
-if(e.x>580){e.x=580;e.vx*=-1;}
-
-if(Math.random()<0.01+phase*0.003){
-
-enemyBullets.push({
-x:e.x+10,
-y:e.y+15,
-vx:0,
-vy:4,
-type:"normal"
-});
-
-}
-
-});
-
-bullets.forEach((b,bi)=>{
-
-enemies.forEach((e,ei)=>{
-
-if(
-b.x<e.x+20 &&
-b.x+4>e.x &&
-b.y<e.y+20 &&
-b.y+10>e.y
-){
-
-createExplosion(e.x,e.y,10);
-
-enemies.splice(ei,1);
-bullets.splice(bi,1);
-
-score+=100;
-document.getElementById("score").textContent=score;
-
-}
-
-});
-
-});
-
-if(boss){
-
-boss.x+=boss.vx;
-
-if(boss.x<0||boss.x+boss.w>600) boss.vx*=-1;
-
-let r=Math.random();
-
-if(r<0.02){
-
-enemyBullets.push({
-x:boss.x+boss.w/2,
-y:boss.y+boss.h,
-vx:0,
-vy:4,
-type:"split"
-});
-
-}else if(r<0.035){
-
-enemyBullets.push({
-x:boss.x+boss.w/2,
-y:boss.y+boss.h,
-vx:3,
-vy:3,
-type:"bounce"
-});
-
-}else if(r<0.045){
-
-enemies.push({
-x:boss.x+Math.random()*80,
-y:boss.y+60,
-vx:(Math.random()-0.5)*3,
-vy:1
-});
-
-}
-
-bullets.forEach((b,bi)=>{
-
-if(
-b.x<boss.x+boss.w &&
-b.x+4>boss.x &&
-b.y<boss.y+boss.h &&
-b.y+10>boss.y
-){
-
-boss.hp--;
-
-bullets.splice(bi,1);
-
-createExplosion(b.x,b.y,6);
-
-if(boss.hp<=0){
-
-createExplosion(boss.x+40,boss.y+30,40);
-
-score+=5000;
-boss=null;
-
-}
-
-}
-
-});
-
-}
-
-enemyBullets.forEach((b,bi)=>{
-
-if(
-b.x<player.x+20 &&
-b.x+4>player.x &&
-b.y<player.y+20 &&
-b.y+10>player.y
-){
-
-enemyBullets.splice(bi,1);
-
-damage++;
-
-document.getElementById("damage").textContent=damage;
-
-if(damage>=10) gameOver=true;
-
-}
-
-});
-
-explosions.forEach((ex,i)=>{
-
-ex.life--;
-
-ex.particles.forEach(p=>{
-p.x+=p.vx;
-p.y+=p.vy;
-});
-
-if(ex.life<=0) explosions.splice(i,1);
-
-});
-
-if(enemies.length===0 && !boss){
-
-phase++;
-
-document.getElementById("phase").textContent=phase;
-
-if(phase<5){
-spawnEnemies();
-}else{
-spawnBoss();
-}
-
-}
-
-}
-
-function createExplosion(x,y,count){
-
-let particles=[];
-
-for(let i=0;i<count;i++){
-
-particles.push({
-x:x,
-y:y,
-vx:(Math.random()-0.5)*6,
-vy:(Math.random()-0.5)*6
-});
-
-}
-
-explosions.push({
-particles:particles,
-life:30
-});
-
-}
-
-function drawPixel(x,y,p,c){
-
-ctx.fillStyle=c;
-
-for(let r=0;r<p.length;r++){
-for(let col=0;col<p[r].length;col++){
-
-if(p[r][col]){
-ctx.fillRect(x+col*4,y+r*4,4,4);
-}
-
-}
-}
-
-}
-
-const playerSprite=[
-[0,1,0],
-[1,1,1],
-[1,1,1]
-];
-
-const enemySprite=[
-[1,0,1],
-[1,1,1],
-[0,1,0]
-];
-
-const bossSprite=[
-[1,1,0,0,0,1,1],
-[0,1,1,1,1,1,0],
-[1,1,1,1,1,1,1],
-[1,0,1,1,1,0,1],
-[1,1,1,1,1,1,1]
-];
-
-function draw(){
-
-ctx.clearRect(0,0,600,650);
-
-drawPixel(player.x,player.y,playerSprite,"lime");
-
-bullets.forEach(b=>{
-ctx.fillStyle="yellow";
-ctx.fillRect(b.x,b.y,3,10);
-});
-
-enemyBullets.forEach(b=>{
-ctx.fillStyle="white";
-ctx.fillRect(b.x,b.y,3,10);
-});
-
-enemies.forEach(e=>{
-drawPixel(e.x,e.y,enemySprite,"red");
-});
-
-if(boss){
-
-drawPixel(boss.x,boss.y,bossSprite,"purple");
-
-ctx.fillStyle="white";
-ctx.fillText("BOSS HP "+boss.hp,boss.x,boss.y-10);
-
-}
-
-explosions.forEach(ex=>{
-
-ctx.fillStyle="orange";
-
-ex.particles.forEach(p=>{
-ctx.fillRect(p.x,p.y,3,3);
-});
-
-});
-
-if(gameOver){
-
-ctx.fillStyle="white";
-ctx.font="50px sans-serif";
-ctx.fillText("GAME OVER",200,320);
-
-}
 
 }
 
@@ -427,11 +167,364 @@ function loop(){
 
 update();
 draw();
+
 requestAnimationFrame(loop);
 
 }
 
-loop();
+function update(){
+
+if(!gameStarted)return;
+
+movePlayer();
+
+updateBullets();
+
+updateEnemies();
+
+updateBoss();
+
+updateExplosions();
+
+updateUI();
+
+}
+
+function movePlayer(){
+
+let speed=4;
+
+if(keys["ArrowLeft"]){
+player.x-=speed;
+}
+
+if(keys["ArrowRight"]){
+player.x+=speed;
+}
+
+if(keys["ArrowUp"]){
+player.y-=speed;
+}
+
+if(keys["ArrowDown"]){
+player.y+=speed;
+}
+
+if(keys[" "]){
+shoot();
+}
+
+if(player.x<50)player.x=50;
+if(player.x>520)player.x=520;
+
+if(player.y<350)player.y=350;
+if(player.y>560)player.y=560;
+
+}
+
+let shootTimer=0;
+
+function shoot(){
+
+if(shootTimer>0)return;
+
+bullets.push({
+
+x:player.x+15,
+y:player.y,
+vy:-6
+
+});
+
+shootTimer=10;
+
+}
+
+function updateBullets(){
+
+shootTimer--;
+
+bullets.forEach((b,i)=>{
+
+b.y+=b.vy;
+
+if(b.y<0){
+bullets.splice(i,1);
+}
+
+});
+
+enemyBullets.forEach((b,i)=>{
+
+b.x+=b.vx;
+b.y+=b.vy;
+
+if(b.type=="bounce"){
+
+if(b.x<0||b.x>600)b.vx*=-1;
+
+}
+
+if(b.y>600){
+enemyBullets.splice(i,1);
+}
+
+if(hit(b,player)){
+
+hp--;
+enemyBullets.splice(i,1);
+
+explosions.push({x:player.x,y:player.y,t:20});
+
+}
+
+});
+
+}
+
+function updateEnemies(){
+
+enemies.forEach((e,i)=>{
+
+e.x+=e.vx;
+e.y+=e.vy;
+
+if(e.x<0||e.x>560){
+e.vx*=-1;
+}
+
+if(e.y>300){
+e.y=300;
+}
+
+if(Math.random()<0.01){
+
+enemyBullets.push({
+x:e.x+10,
+y:e.y,
+vx:(Math.random()-0.5)*2,
+vy:3
+});
+
+}
+
+bullets.forEach((b,bi)=>{
+
+if(hit(b,e)){
+
+explosions.push({x:e.x,y:e.y,t:20});
+
+bullets.splice(bi,1);
+enemies.splice(i,1);
+
+phaseProgress++;
+
+}
+
+});
+
+});
+
+if(enemies.length==0){
+
+if(phase<5){
+
+phase++;
+spawnEnemies();
+
+}else{
+
+spawnBoss();
+
+}
+
+}
+
+}
+
+function updateBoss(){
+
+if(!boss)return;
+
+boss.x+=boss.vx;
+
+if(boss.x<0||boss.x>520){
+boss.vx*=-1;
+}
+
+let r=Math.random();
+
+if(r<0.02){
+
+enemyBullets.push({
+x:boss.x+40,
+y:boss.y+80,
+vx:0,
+vy:4,
+type:"split"
+});
+
+}
+
+if(r<0.03){
+
+enemyBullets.push({
+x:boss.x+40,
+y:boss.y+80,
+vx:3,
+vy:3,
+type:"bounce"
+});
+
+}
+
+if(r<0.035){
+
+enemies.push({
+x:boss.x,
+y:boss.y+80,
+vx:(Math.random()-0.5)*3,
+vy:1
+});
+
+}
+
+bullets.forEach((b,i)=>{
+
+if(hit(b,boss)){
+
+boss.hp--;
+
+bullets.splice(i,1);
+
+explosions.push({x:b.x,y:b.y,t:20});
+
+}
+
+});
+
+if(boss.hp<=0){
+
+explosions.push({x:boss.x,y:boss.y,t:60});
+
+boss=null;
+
+}
+
+}
+
+function updateExplosions(){
+
+explosions.forEach((e,i)=>{
+
+e.t--;
+
+if(e.t<=0){
+explosions.splice(i,1);
+}
+
+});
+
+}
+
+function updateUI(){
+
+document.getElementById("hpBar").style.width=(hp*10)+"%";
+
+let p=Math.min(phaseProgress/10*100,100);
+
+document.getElementById("phaseBar").style.width=p+"%";
+
+}
+
+function draw(){
+
+ctx.clearRect(0,0,600,600);
+
+drawPlayer();
+
+drawEnemies();
+
+drawBoss();
+
+drawBullets();
+
+drawExplosions();
+
+}
+
+function drawPlayer(){
+
+ctx.fillStyle="cyan";
+
+ctx.fillRect(player.x,player.y,30,20);
+ctx.fillRect(player.x+10,player.y-10,10,10);
+
+}
+
+function drawEnemies(){
+
+ctx.fillStyle="lime";
+
+enemies.forEach(e=>{
+
+ctx.fillRect(e.x,e.y,20,20);
+
+});
+
+}
+
+function drawBoss(){
+
+if(!boss)return;
+
+ctx.fillStyle="purple";
+
+ctx.fillRect(boss.x,boss.y,80,40);
+ctx.fillRect(boss.x+20,boss.y-20,40,20);
+
+}
+
+function drawBullets(){
+
+ctx.fillStyle="yellow";
+
+bullets.forEach(b=>{
+ctx.fillRect(b.x,b.y,4,10);
+});
+
+ctx.fillStyle="red";
+
+enemyBullets.forEach(b=>{
+ctx.fillRect(b.x,b.y,6,6);
+});
+
+}
+
+function drawExplosions(){
+
+ctx.fillStyle="orange";
+
+explosions.forEach(e=>{
+
+ctx.beginPath();
+ctx.arc(e.x,e.y,20-e.t/2,0,Math.PI*2);
+ctx.fill();
+
+});
+
+}
+
+function hit(a,b){
+
+return(
+a.x<b.x+b.w &&
+a.x+5>b.x &&
+a.y<b.y+b.h &&
+a.y+5>b.y
+);
+
+}
 
 </script>
 

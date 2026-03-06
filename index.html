@@ -2,7 +2,7 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>Dot Shooting Game</title>
+<title>Dot Danmaku Shooter</title>
 
 <style>
 body{
@@ -14,17 +14,15 @@ font-family:sans-serif;
 }
 
 canvas{
-background:#111;
 display:block;
 margin:auto;
+background:#111;
 image-rendering:pixelated;
 }
 </style>
 </head>
 
 <body>
-
-<h2>Dot Shooting Game</h2>
 
 <canvas id="game" width="800" height="600"></canvas>
 
@@ -38,25 +36,29 @@ let keys={}
 document.addEventListener("keydown",e=>keys[e.key]=true)
 document.addEventListener("keyup",e=>keys[e.key]=false)
 
+let gameState="title"
+
 let player={
 x:380,
 y:540,
 hp:100,
+maxHp:100,
 cool:0
 }
 
 let bullets=[]
 let enemies=[]
 let enemyBullets=[]
+let items=[]
+let explosions=[]
+
 let boss=null
 
 let phase=1
-let enemiesLeft=0
-let gameOver=false
+let enemiesTotal=0
+let enemiesKilled=0
 
-/* =======================
-ドット絵
-======================= */
+/* ドット絵 */
 
 const playerSprite=[
 "00100",
@@ -87,15 +89,15 @@ const bossSprite=[
 
 function drawSprite(sprite,x,y,size,color){
 
-for(let row=0;row<sprite.length;row++){
-for(let col=0;col<sprite[row].length;col++){
+for(let r=0;r<sprite.length;r++){
+for(let c=0;c<sprite[r].length;c++){
 
-if(sprite[row][col]=="1"){
+if(sprite[r][c]=="1"){
 
 ctx.fillStyle=color
 ctx.fillRect(
-x+col*size,
-y+row*size,
+x+c*size,
+y+r*size,
 size,
 size
 )
@@ -107,13 +109,15 @@ size
 
 }
 
-/* =======================
-敵生成
-======================= */
+/* 敵生成 */
 
 function spawnEnemies(){
 
 let count=phase*4
+
+enemies=[]
+enemiesKilled=0
+enemiesTotal=count
 
 for(let i=0;i<count;i++){
 
@@ -121,67 +125,104 @@ enemies.push({
 
 x:Math.random()*760,
 y:Math.random()*200,
+
 dx:(Math.random()-0.5)*2,
-dy:Math.random()*1.5,
-size:30
+dy:(Math.random()-0.5)*2
 
 })
 
 }
 
-enemiesLeft=count
-
 }
 
-/* =======================
-ボス生成
-======================= */
+/* ボス */
 
 function spawnBoss(){
 
 boss={
-x:350,
+x:360,
 y:80,
-hp:400,
+hp:500,
 cool:0
 }
 
 }
 
-/* =======================
-更新
-======================= */
+/* 爆発 */
+
+function createExplosion(x,y){
+
+for(let i=0;i<10;i++){
+
+explosions.push({
+
+x:x,
+y:y,
+dx:(Math.random()-0.5)*4,
+dy:(Math.random()-0.5)*4,
+life:30
+
+})
+
+}
+
+}
+
+/* 回復 */
+
+function dropItem(x,y){
+
+if(Math.random()<0.25){
+
+items.push({
+x:x,
+y:y,
+type:"heal"
+})
+
+}
+
+}
+
+/* 更新 */
 
 function update(){
 
-if(gameOver)return
+if(gameState=="title"){
 
-/* プレイヤー移動 */
+if(keys["Enter"]){
 
-if(keys["ArrowLeft"]) player.x-=6
-if(keys["ArrowRight"]) player.x+=6
+gameState="play"
+spawnEnemies()
+
+}
+
+return
+}
+
+/* 移動 */
+
+if(keys["ArrowLeft"])player.x-=6
+if(keys["ArrowRight"])player.x+=6
 
 player.x=Math.max(0,Math.min(770,player.x))
 
-/* 弾 */
+/* 攻撃 */
 
 player.cool--
 
 if(keys[" "] && player.cool<=0){
 
 bullets.push({
-x:player.x+10,
+x:player.x+15,
 y:player.y
 })
 
-player.cool=18
+player.cool=15
 }
 
-for(let b of bullets){
-b.y-=8
-}
-
-bullets=bullets.filter(b=>b.y>-20)
+for(let b of bullets)b.y-=8
+bullets=bullets.filter(b=>b.y>-10)
 
 /* 敵 */
 
@@ -193,7 +234,7 @@ e.y+=e.dy
 if(e.x<0||e.x>770)e.dx*=-1
 if(e.y<0||e.y>300)e.dy*=-1
 
-if(Math.random()<0.01+phase*0.003){
+if(Math.random()<0.01+phase*0.002){
 
 enemyBullets.push({
 x:e.x+15,
@@ -222,24 +263,23 @@ b.y>e.y &&
 b.y<e.y+30
 ){
 
+createExplosion(e.x,e.y)
+dropItem(e.x,e.y)
+
 enemies.splice(i,1)
 bullets.splice(j,1)
 
-enemiesLeft--
+enemiesKilled++
 
 break
-
 }
 
 }
-
 }
 
 /* 敵弾 */
 
-for(let b of enemyBullets){
-b.y+=b.dy
-}
+for(let b of enemyBullets)b.y+=b.dy
 
 enemyBullets=enemyBullets.filter(b=>b.y<620)
 
@@ -257,19 +297,55 @@ b.y<player.y+30
 player.hp-=5
 b.y=700
 
+createExplosion(player.x,player.y)
+
 }
 
 }
 
 if(player.hp<=0){
 
-gameOver=true
+gameState="gameover"
 
 }
 
-/* フェーズクリア */
+/* アイテム */
 
-if(enemiesLeft<=0 && !boss){
+for(let it of items){
+
+it.y+=2
+
+if(
+it.x>player.x &&
+it.x<player.x+30 &&
+it.y>player.y &&
+it.y<player.y+30
+){
+
+player.hp=Math.min(player.maxHp,player.hp+20)
+it.y=700
+
+}
+
+}
+
+items=items.filter(i=>i.y<620)
+
+/* 爆発 */
+
+for(let ex of explosions){
+
+ex.x+=ex.dx
+ex.y+=ex.dy
+ex.life--
+
+}
+
+explosions=explosions.filter(e=>e.life>0)
+
+/* フェーズ */
+
+if(enemiesKilled>=enemiesTotal && !boss){
 
 phase++
 
@@ -295,14 +371,15 @@ boss.x+=Math.sin(Date.now()/400)*2
 
 if(boss.cool<=0){
 
-for(let i=0;i<12;i++){
+for(let i=0;i<16;i++){
 
-let angle=(Math.PI*2/12)*i
+let angle=(Math.PI*2/16)*i
 
 enemyBullets.push({
 
 x:boss.x+40,
 y:boss.y+40,
+
 dx:Math.cos(angle)*3,
 dy:Math.sin(angle)*3
 
@@ -317,13 +394,13 @@ boss.cool=40
 for(let b of enemyBullets){
 
 if(b.dx){
+
 b.x+=b.dx
 b.y+=b.dy
-}
 
 }
 
-/* ボス被弾 */
+}
 
 for(let b of bullets){
 
@@ -337,14 +414,15 @@ b.y<boss.y+80
 boss.hp-=10
 b.y=-50
 
+createExplosion(boss.x+40,boss.y+40)
+
 }
 
 }
 
 if(boss.hp<=0){
 
-alert("GAME CLEAR")
-gameOver=true
+gameState="clear"
 
 }
 
@@ -352,13 +430,27 @@ gameOver=true
 
 }
 
-/* =======================
-描画
-======================= */
+/* 描画 */
 
 function draw(){
 
 ctx.clearRect(0,0,800,600)
+
+/* タイトル */
+
+if(gameState=="title"){
+
+ctx.fillStyle="white"
+ctx.font="50px sans-serif"
+
+ctx.fillText("DOT SHOOTER",250,250)
+
+ctx.font="20px sans-serif"
+ctx.fillText("PRESS ENTER",320,320)
+
+return
+
+}
 
 /* プレイヤー */
 
@@ -367,19 +459,14 @@ drawSprite(playerSprite,player.x,player.y,6,"cyan")
 /* 弾 */
 
 ctx.fillStyle="yellow"
-for(let b of bullets){
 
+for(let b of bullets)
 ctx.fillRect(b.x,b.y,4,10)
-
-}
 
 /* 敵 */
 
-for(let e of enemies){
-
+for(let e of enemies)
 drawSprite(enemySprite,e.x,e.y,6,"red")
-
-}
 
 /* 敵弾 */
 
@@ -393,6 +480,23 @@ ctx.fill()
 
 }
 
+/* アイテム */
+
+ctx.fillStyle="lime"
+
+for(let it of items)
+ctx.fillRect(it.x,it.y,10,10)
+
+/* 爆発 */
+
+ctx.fillStyle="yellow"
+
+for(let ex of explosions){
+
+ctx.fillRect(ex.x,ex.y,3,3)
+
+}
+
 /* ボス */
 
 if(boss){
@@ -400,31 +504,53 @@ if(boss){
 drawSprite(bossSprite,boss.x,boss.y,10,"purple")
 
 ctx.fillStyle="white"
-ctx.fillText("BOSS HP:"+boss.hp,340,20)
+ctx.fillText("BOSS HP:"+boss.hp,350,20)
 
 }
 
-/* UI */
+/* HPバー */
+
+ctx.fillStyle="red"
+ctx.fillRect(20,20,200,10)
+
+ctx.fillStyle="lime"
+ctx.fillRect(20,20,200*(player.hp/player.maxHp),10)
+
+/* フェーズバー */
+
+ctx.fillStyle="gray"
+ctx.fillRect(20,40,200,8)
+
+ctx.fillStyle="cyan"
+
+let progress=enemiesKilled/enemiesTotal
+
+ctx.fillRect(20,40,200*progress,8)
+
+/* 表示 */
 
 ctx.fillStyle="white"
+ctx.fillText("PHASE "+phase,20,70)
 
-ctx.fillText("HP:"+player.hp,20,20)
-ctx.fillText("PHASE:"+phase,20,40)
+/* 終了 */
 
-if(gameOver){
+if(gameState=="gameover"){
 
-ctx.font="40px sans-serif"
-ctx.fillText("GAME OVER",300,300)
+ctx.font="50px sans-serif"
+ctx.fillText("GAME OVER",260,300)
+
+}
+
+if(gameState=="clear"){
+
+ctx.font="50px sans-serif"
+ctx.fillText("GAME CLEAR!",250,300)
 
 }
 
 }
 
-/* =======================
-ゲーム開始
-======================= */
-
-spawnEnemies()
+/* ループ */
 
 function loop(){
 

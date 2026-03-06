@@ -31,6 +31,8 @@ Phase <span id="phase">1</span>
 </div>
 
 <script>
+window.onload=()=>{
+
 const canvas=document.getElementById("c")
 const ctx=canvas.getContext("2d")
 
@@ -86,7 +88,7 @@ function startGame(){
 player={x:400,y:540,hp:100}
 spawnPhase()
 running=true
-requestAnimationFrame(loop)
+loop()
 }
 
 function spawnPhase(){
@@ -120,12 +122,7 @@ document.addEventListener("keyup",e=>keys[e.key]=false)
 
 function explosion(x,y){
 for(let i=0;i<15;i++){
-explosions.push({
-x,y,
-vx:(Math.random()-0.5)*4,
-vy:(Math.random()-0.5)*4,
-life:25
-})
+explosions.push({x,y,vx:(Math.random()-0.5)*4,vy:(Math.random()-0.5)*4,life:25})
 }
 }
 
@@ -144,16 +141,13 @@ e.t+=0.05
 
 if(e.boss){
 e.x=400+Math.sin(e.t)*200
-
 if(Math.random()<0.2){
 for(let a=0;a<6.28;a+=0.4){
 enemyBullets.push({x:e.x,y:e.y,vx:Math.cos(a)*2,vy:Math.sin(a)*2})
 }
 }
-
 }else{
 e.x+=Math.sin(e.t)*2
-
 if(Math.random()<0.01){
 enemyBullets.push({x:e.x,y:e.y,vx:0,vy:3})
 }
@@ -163,7 +157,6 @@ enemyBullets.push({x:e.x,y:e.y,vx:0,vy:3})
 for(let b of enemyBullets){
 b.x+=b.vx
 b.y+=b.vy
-
 if(Math.hypot(b.x-player.x,b.y-player.y)<8){
 player.hp-=5
 b.y=999
@@ -177,23 +170,18 @@ for(let e of enemies){
 if(Math.hypot(b.x-e.x,b.y-e.y)<14){
 e.hp--
 b.y=-100
-
 if(e.hp<=0){
 explosion(e.x,e.y)
 score+=100
-
-if(Math.random()<0.3){
-items.push({x:e.x,y:e.y})
-}
-
+if(Math.random()<0.3) items.push({x:e.x,y:e.y})
 e.dead=true
+}
 }
 }
 }
 
 for(let i of items){
 i.y+=2
-
 if(Math.hypot(i.x-player.x,i.y-player.y)<20){
 player.hp=Math.min(100,player.hp+20)
 i.y=999
@@ -203,11 +191,7 @@ i.y=999
 items=items.filter(i=>i.y<620)
 enemies=enemies.filter(e=>!e.dead)
 
-explosions.forEach(e=>{
-e.x+=e.vx
- e.y+=e.vy
- e.life--
-})
+explosions.forEach(e=>{e.x+=e.vx;e.y+=e.vy;e.life--})
 explosions=explosions.filter(e=>e.life>0)
 
 if(enemies.length===0){
@@ -220,15 +204,8 @@ document.getElementById("score").textContent=score
 
 document.getElementById("phase").textContent=phase
 
-if(player.hp<=0){
-alert("GAME OVER")
-location.reload()
-}
-
-if(phase>10){
-alert("GAME CLEAR!")
-location.reload()
-}
+if(player.hp<=0){alert("GAME OVER");location.reload()}
+if(phase>10){alert("GAME CLEAR!");location.reload()}
 }
 
 function draw(){
@@ -237,28 +214,21 @@ ctx.clearRect(0,0,800,600)
 // player
 drawSprite(playerSprite,player.x-14,player.y-10,4,"cyan")
 
-// bullets
 ctx.fillStyle="white"
 bullets.forEach(b=>ctx.fillRect(b.x,b.y,3,8))
 
 // enemies
 enemies.forEach(e=>{
-if(e.boss){
-drawSprite(enemySprite,e.x-20,e.y-20,6,"purple")
-}else{
-drawSprite(enemySprite,e.x-10,e.y-10,4,"lime")
-}
+if(e.boss){drawSprite(enemySprite,e.x-20,e.y-20,6,"purple")}
+else{drawSprite(enemySprite,e.x-10,e.y-10,4,"lime")}
 })
 
-// enemy bullets
 ctx.fillStyle="yellow"
 enemyBullets.forEach(b=>ctx.fillRect(b.x,b.y,5,5))
 
-// items
 ctx.fillStyle="lime"
 items.forEach(i=>ctx.fillRect(i.x-5,i.y-5,10,10))
 
-// explosions
 ctx.fillStyle="orange"
 explosions.forEach(e=>ctx.fillRect(e.x,e.y,4,4))
 
@@ -275,7 +245,9 @@ draw()
 requestAnimationFrame(loop)
 }
 
+}
 </script>
 
 </body>
 </html>
+

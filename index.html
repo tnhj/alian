@@ -41,7 +41,7 @@ let paused=false
 let score=0
 let phase=1
 
-const player={x:400,y:520,size:16,hit:4,hp:100,lives:10,fireCooldown:0}
+const player={x:400,y:520,size:16,hit:4,hp:100,lives:10,fireCooldown:0,inv:0}
 
 const bullets=[]
 const enemyBullets=[]
@@ -80,7 +80,7 @@ moveSeed:Math.random()*1000
 
 }
 
-if(phase%2===0){
+if(phase%4===0){
 
 enemies.push({
 x:400,
@@ -110,6 +110,7 @@ if(keys["ArrowRight"]) player.x+=6
 player.x=Math.max(20,Math.min(780,player.x))
 
 if(player.fireCooldown>0) player.fireCooldown--
+if(player.inv>0) player.inv--
 
 if(keys[" "] && player.fireCooldown<=0){
 shoot()
@@ -205,10 +206,12 @@ return
 
 let drop=Math.random()
 
-if(drop<0.35){
+if(drop<0.40){
 items.push({x:e.x,y:e.y,type:"heal"})
-}else if(drop<0.38){
+}else if(drop<0.43){
 items.push({x:e.x,y:e.y,type:"life"})
+}else if(drop<0.55){
+items.push({x:e.x,y:e.y,type:"shield"})
 }
 
 
@@ -227,10 +230,11 @@ enemyBullets.forEach((b,bi)=>{
 const dx=b.x-player.x
 const dy=b.y-player.y
 
-if(Math.sqrt(dx*dx+dy*dy)<player.hit){
+if(Math.sqrt(dx*dx+dy*dy)<player.hit && player.inv<=0){
 
 enemyBullets.splice(bi,1)
 player.hp-=10
+player.inv=90
 
 if(player.hp<=0){
 
@@ -255,6 +259,7 @@ items.forEach((i,ii)=>{
 if(Math.abs(i.x-player.x)<20 && Math.abs(i.y-player.y)<20){
 
 if(i.type==="heal") player.hp=Math.min(100,player.hp+30)
+if(i.type==="shield") player.inv=180
 if(i.type==="life") player.lives++
 
 items.splice(ii,1)
@@ -309,7 +314,7 @@ enemyBullets.forEach(b=>ctx.fillRect(b.x-3,b.y-3,6,6))
 enemies.forEach(drawEnemy)
 
 items.forEach(i=>{
-ctx.fillStyle=i.type==="life"?"cyan":"lime"
+ctx.fillStyle = i.type==="life" ? "cyan" : (i.type==="shield" ? "yellow" : "lime")
 ctx.fillRect(i.x-6,i.y-6,12,12)
 })
 

@@ -2,258 +2,90 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>Pixel Boss Battle</title>
-
+<title>Danmaku Boss Game</title>
 <style>
-
-body{
-margin:0;
-background:black;
-color:white;
-font-family:monospace;
-overflow:hidden;
-}
-
-canvas{
-display:block;
-margin:auto;
-background:#111;
-image-rendering:pixelated;
-}
-
-#ui{
-position:absolute;
-top:10px;
-left:10px;
-}
-
-.bar{
-width:220px;
-height:14px;
-background:#333;
-margin-bottom:6px;
-}
-
-.fill{
-height:100%;
-background:#0f0;
-}
-
-#phasefill{background:cyan;}
-#bossfill{background:red;}
-
-#title{
-position:absolute;
-width:100%;
-height:100%;
-display:flex;
-flex-direction:column;
-justify-content:center;
-align-items:center;
-background:black;
-font-size:40px;
-}
-
-button{
-font-size:20px;
-padding:10px 30px;
-margin-top:20px;
-}
-
+body{margin:0;background:black;color:white;text-align:center;font-family:sans-serif}
+canvas{background:#111;display:block;margin:auto}
 </style>
 </head>
-
 <body>
 
-<div id="title">
-PIXEL BOSS BATTLE
-<button onclick="startGame()">START</button>
-</div>
-
-<div id="ui">
-
-HP
-<div class="bar"><div id="hpfill" class="fill"></div></div>
-
-PHASE
-<div class="bar"><div id="phasefill" class="fill"></div></div>
-
-<div id="bossui" style="display:none;">
-BOSS
-<div class="bar"><div id="bossfill"></div></div>
-</div>
-
-</div>
-
-<canvas id="game" width="800" height="500"></canvas>
+<h2>Danmaku Boss Game</h2>
+<canvas id="game" width="800" height="600"></canvas>
 
 <script>
 
-const canvas = document.getElementById("game")
-const ctx = canvas.getContext("2d")
+const canvas=document.getElementById("game")
+const ctx=canvas.getContext("2d")
 
 let keys={}
 document.addEventListener("keydown",e=>keys[e.key]=true)
 document.addEventListener("keyup",e=>keys[e.key]=false)
 
-const playerSprite=[
-"00100",
-"01110",
-"11111",
-"10101",
-"00100"
-]
-
-const enemySprite=[
-"01110",
-"11111",
-"10101",
-"11111",
-"01110"
-]
-
-const bossSprite=[
-"00111100",
-"11111111",
-"11011011",
-"11111111",
-"01111110"
-]
-
 let player={
-x:380,
-y:440,
-hp:100,
-speed:3
+x:400,
+y:560,
+w:30,
+h:30,
+hp:120,
+cool:0
 }
 
 let bullets=[]
-let enemyBullets=[]
 let enemies=[]
-let explosions=[]
+let enemyBullets=[]
 let boss=null
 
+let frame=0
 let phase=1
-let progress=0
-let maxProgress=100
 let gameOver=false
 
-function startGame(){
-
-document.getElementById("title").style.display="none"
-
-spawnEnemies()
-
-loop()
-
+function shoot(x,y,angle,speed,r=5){
+enemyBullets.push({
+x,y,
+dx:Math.cos(angle)*speed,
+dy:Math.sin(angle)*speed,
+r:r
+})
 }
 
-function drawSprite(sprite,x,y,scale,color){
-
-ctx.fillStyle=color
-
-for(let r=0;r<sprite.length;r++){
-for(let c=0;c<sprite[r].length;c++){
-
-if(sprite[r][c]=="1"){
-
-ctx.fillRect(
-x+c*scale,
-y+r*scale,
-scale,
-scale)
-
-}
-
-}}
-
-}
-
-function spawnEnemies(){
-
-let count=5+phase*2
-
+function circleShot(x,y,count,speed){
 for(let i=0;i<count;i++){
+shoot(x,y,(Math.PI*2/count)*i,speed)
+}
+}
+
+function spiralShot(x,y,count,speed,rot){
+for(let i=0;i<count;i++){
+shoot(x,y,(Math.PI*2/count)*i+rot,speed)
+}
+}
+
+function spawnEnemy(){
 
 enemies.push({
-
-x:Math.random()*760,
-y:Math.random()*200,
-vx:(Math.random()*2-1)*(1+phase*0.2),
-vy:(Math.random()*2-1)*(1+phase*0.2),
-shoot:80-Math.min(phase*5,50)
-
+x:Math.random()*760+20,
+y:-20,
+w:35,
+h:35,
+hp:3,
+speed:1+phase*0.3
 })
-
-}
 
 }
 
 function spawnBoss(){
 
 boss={
-x:300,
+x:320,
 y:60,
-vx:3,
-hp:300,
-max:300,
-phase2:false,
-timer:0
-}
-
-document.getElementById("bossui").style.display="block"
-
-}
-
-function shoot(){
-
-bullets.push({
-x:player.x+10,
-y:player.y,
-vy:-7
-})
-
-}
-
-function explosion(x,y){
-
-explosions.push({x,y,frame:0})
-
-}
-
-function splitShot(x,y){
-
-for(let i=-2;i<=2;i++){
-
-enemyBullets.push({
-x,y,
-vx:i*1.5,
-vy:3
-})
-
-}
-
-}
-
-function bounceShot(x,y){
-
-enemyBullets.push({x,y,vx:4,vy:2,bounce:true})
-enemyBullets.push({x,y,vx:-4,vy:2,bounce:true})
-
-}
-
-function summonMinion(){
-
-for(let i=0;i<2;i++){
-
-enemies.push({
-x:boss.x+Math.random()*80,
-y:boss.y+60,
-vx:(Math.random()*2-1)*2,
-vy:(Math.random()*2-1)*2,
-shoot:80
-})
-
+w:160,
+h:160,
+hp:1000,
+phase:1,
+cool:0,
+move:3,
+rot:0
 }
 
 }
@@ -262,233 +94,214 @@ function update(){
 
 if(gameOver)return
 
-if(keys["ArrowLeft"]) player.x-=player.speed
-if(keys["ArrowRight"]) player.x+=player.speed
+frame++
 
-player.x=Math.max(0,Math.min(780,player.x))
+if(keys["ArrowLeft"]) player.x-=6
+if(keys["ArrowRight"]) player.x+=6
 
-if(keys[" "] && Math.random()<0.3) shoot()
+player.x=Math.max(0,Math.min(770,player.x))
 
-bullets.forEach(b=>b.y+=b.vy)
-bullets=bullets.filter(b=>b.y>-20)
+player.cool--
+if(keys[" "] && player.cool<=0){
+bullets.push({x:player.x+15,y:player.y,dy:-7})
+player.cool=18
+}
 
-enemies.forEach(e=>{
+for(let b of bullets)b.y+=b.dy
+bullets=bullets.filter(b=>b.y>-10)
 
-e.x+=e.vx
-e.y+=e.vy
+if(!boss && frame%Math.max(20,80-phase*5)==0){
+spawnEnemy()
+}
 
-if(e.x<0||e.x>780)e.vx*=-1
-if(e.y<0||e.y>250)e.vy*=-1
+for(let e of enemies){
 
-e.shoot--
+e.y+=e.speed
 
-if(e.shoot<0){
+if(Math.random()<0.02+phase*0.01){
 
-enemyBullets.push({
-x:e.x+10,
-y:e.y+10,
-vx:0,
-vy:3+phase*0.3
-})
-
-e.shoot=80-Math.min(phase*5,50)
+shoot(e.x+15,e.y,Math.PI/2,3+phase*0.4)
 
 }
 
-})
+}
 
-enemyBullets.forEach(b=>{
+for(let b of enemyBullets){
 
-b.x+=b.vx||0
-b.y+=b.vy
-
-if(b.bounce){
-
-if(b.x<0||b.x>800)b.vx*=-1
+b.x+=b.dx
+b.y+=b.dy
 
 }
 
-})
+for(let e of enemies){
+for(let b of bullets){
 
-enemyBullets.forEach((b,i)=>{
+if(b.x>e.x&&b.x<e.x+e.w&&b.y>e.y&&b.y<e.y+e.h){
+e.hp--
+b.y=-999
+}
 
-if(Math.abs(b.x-player.x)<14 && Math.abs(b.y-player.y)<14){
+}
+}
 
+enemies=enemies.filter(e=>e.hp>0 && e.y<650)
+
+for(let b of enemyBullets){
+
+if(b.x>player.x&&b.x<player.x+player.w&&b.y>player.y&&b.y<player.y+player.h){
 player.hp-=5
-explosion(player.x,player.y)
-enemyBullets.splice(i,1)
+b.y=999
+}
+
+}
+
+enemyBullets=enemyBullets.filter(b=>b.y<700&&b.x>-50&&b.x<850)
 
 if(player.hp<=0){
-
 gameOver=true
-alert("GAME OVER")
-location.reload()
-
 }
 
-}
-
-})
-
-bullets.forEach((b,bi)=>{
-
-enemies.forEach((e,ei)=>{
-
-if(Math.abs(b.x-e.x)<18 && Math.abs(b.y-e.y)<18){
-
-explosion(e.x,e.y)
-
-bullets.splice(bi,1)
-enemies.splice(ei,1)
-
-progress+=10
-
-}
-
-})
-
-})
-
-if(enemies.length==0 && !boss){
-
-if(progress>=maxProgress){
-
+if(frame>900 && !boss){
 spawnBoss()
-
-}else{
-
-phase++
-spawnEnemies()
-
-}
-
 }
 
 if(boss){
 
-boss.timer++
+boss.x+=boss.move
+if(boss.x<0||boss.x>640)boss.move*=-1
 
-boss.x+=boss.vx
-boss.y+=Math.sin(boss.timer*0.05)*1.5
+boss.rot+=0.05
 
-if(boss.x<0||boss.x>650)boss.vx*=-1
-
-if(boss.hp<150 && !boss.phase2){
-
-boss.phase2=true
-
+// 円形弾幕
+if(frame%60==0){
+circleShot(boss.x+80,boss.y+80,20+phase*2,2+phase*0.2)
 }
 
-if(boss.timer%70==0) splitShot(boss.x+60,boss.y)
+// 渦巻き弾幕
+if(frame%8==0){
+spiralShot(boss.x+80,boss.y+80,3,3+phase*0.2,boss.rot)
+}
 
-if(boss.timer%120==0) bounceShot(boss.x+60,boss.y)
+// 分裂弾
+if(frame%120==0){
+for(let i=-2;i<=2;i++){
+shoot(boss.x+80,boss.y+80,Math.PI/2+i*0.2,4)
+}
+}
 
-if(boss.timer%180==0) summonMinion()
+// 子分召喚
+if(frame%200==0){
+spawnEnemy()
+spawnEnemy()
+spawnEnemy()
+}
 
-if(boss.phase2 && boss.timer%90==0){
+// 第二形態
+if(boss.hp<500 && boss.phase==1){
+boss.phase=2
+}
 
+// レーザー
+if(boss.phase==2 && frame%150==0){
+
+for(let y=0;y<600;y+=15){
 enemyBullets.push({
-x:boss.x+60,
-y:boss.y,
-vx:0,
-vy:10,
-laser:true
+x:boss.x+80,
+y:y,
+dx:0,
+dy:0,
+r:7
 })
-
-enemyBullets.push({
-x:boss.x+30,
-y:boss.y,
-vx:0,
-vy:10,
-laser:true
-})
+}
 
 }
 
-bullets.forEach((b,i)=>{
+// 最終理不尽攻撃
+if(boss.hp<200){
 
-if(Math.abs(b.x-boss.x)<80 && Math.abs(b.y-boss.y)<50){
+if(frame%30==0){
+circleShot(boss.x+80,boss.y+80,50,3.5)
+}
 
-boss.hp-=10
-explosion(b.x,b.y)
-
-bullets.splice(i,1)
+if(frame%5==0){
+shoot(boss.x+80,boss.y+80,Math.random()*Math.PI*2,4)
+}
 
 }
 
-})
+for(let b of bullets){
+if(b.x>boss.x&&b.x<boss.x+boss.w&&b.y>boss.y&&b.y<boss.y+boss.h){
+boss.hp-=2
+b.y=-999
+}
+}
 
 if(boss.hp<=0){
+boss=null
+phase++
+frame=0
 
-alert("GAME CLEAR!")
-location.reload()
-
+if(phase>10){
+alert("完全クリア！！")
+gameOver=true
 }
 
 }
 
-explosions.forEach(e=>e.frame++)
-explosions=explosions.filter(e=>e.frame<20)
-
-updateUI()
+}
 
 }
 
 function draw(){
 
-ctx.clearRect(0,0,800,500)
+ctx.clearRect(0,0,800,600)
 
-drawSprite(playerSprite,player.x,player.y,4,"lime")
+ctx.fillStyle="cyan"
+ctx.fillRect(player.x,player.y,player.w,player.h)
 
-bullets.forEach(b=>{
 ctx.fillStyle="yellow"
-ctx.fillRect(b.x,b.y,3,8)
-})
-
-enemyBullets.forEach(b=>{
-ctx.fillStyle=b.laser?"cyan":"red"
-ctx.fillRect(b.x,b.y,6,b.laser?24:10)
-})
-
-enemies.forEach(e=>{
-drawSprite(enemySprite,e.x,e.y,7,"white")
-})
-
-if(boss){
-drawSprite(bossSprite,boss.x,boss.y,16,boss.phase2?"purple":"orange")
+for(let b of bullets){
+ctx.fillRect(b.x,b.y,4,10)
 }
 
-explosions.forEach(e=>{
+ctx.fillStyle="red"
+for(let e of enemies){
+ctx.fillRect(e.x,e.y,e.w,e.h)
+}
 
 ctx.fillStyle="orange"
+for(let b of enemyBullets){
 ctx.beginPath()
-ctx.arc(e.x,e.y,e.frame,0,Math.PI*2)
+ctx.arc(b.x,b.y,b.r,0,Math.PI*2)
 ctx.fill()
-
-})
-
 }
 
-function updateUI(){
-
-document.getElementById("hpfill").style.width=player.hp*2+"px"
-
-document.getElementById("phasefill").style.width=(progress/maxProgress)*220+"px"
-
 if(boss){
-document.getElementById("bossfill").style.width=(boss.hp/boss.max)*220+"px"
+ctx.fillStyle="purple"
+ctx.fillRect(boss.x,boss.y,boss.w,boss.h)
+
+ctx.fillStyle="white"
+ctx.fillText("BOSS HP:"+boss.hp,350,20)
+}
+
+ctx.fillText("HP:"+player.hp,20,20)
+ctx.fillText("PHASE:"+phase,20,40)
+
+if(gameOver){
+ctx.fillStyle="red"
+ctx.font="50px sans-serif"
+ctx.fillText("GAME OVER",260,300)
 }
 
 }
 
 function loop(){
-
 update()
 draw()
-
 requestAnimationFrame(loop)
-
 }
+
+loop()
 
 </script>
 

@@ -67,27 +67,46 @@ loop()
 
 function spawnEnemies(){
 
-for(let i=0;i<10+phase;i++){
+// 雑魚敵
+for(let i=0;i<8+phase;i++){
 
 enemies.push({
-x:80+i*50,
+x:80+i*70%700,
 y:80+Math.random()*80,
 hp:40+phase*10,
 cool:0,
-boss:false,
+type:"mob",
 moveSeed:Math.random()*1000
+
 })
 
 }
 
-if(phase%4===0){
+// 中ボス
+if(phase%4===0 && phase<10){
 
 enemies.push({
 x:400,
 y:120,
-hp:500,
+hp:400,
 cool:0,
-boss:true,
+type:"midboss",
+form:1,
+moveSeed:Math.random()*1000
+
+})
+
+}
+
+// ラスボス
+if(phase===10){
+
+enemies.push({
+x:400,
+y:120,
+hp:1200,
+cool:0,
+type:"final",
 form:1,
 moveSeed:Math.random()*1000
 })
@@ -114,7 +133,7 @@ if(player.inv>0) player.inv--
 
 if(keys[" "] && player.fireCooldown<=0){
 shoot()
-player.fireCooldown=18
+player.fireCooldown=20
 }
 
 bullets.forEach(b=>b.y+=b.vy)
@@ -122,42 +141,41 @@ bullets.forEach(b=>b.y+=b.vy)
 enemyBullets.forEach(b=>{
 b.x+=b.vx
 b.y+=b.vy
+
+// 壁反射弾
+if(b.reflect){
+if(b.x<0||b.x>800) b.vx*=-1
+}
+
 })
 
-items.forEach(i=>{i.y+=2})
+items.forEach(i=>i.y+=2)
 
 for(let e of enemies){
 
-if(!e.boss){
-
+// 移動
+if(e.type==="mob"){
 e.x+=Math.sin(Date.now()/300+e.moveSeed)*1.5
-
-e.y+=Math.sin(Date.now()/600+e.moveSeed)*0.5
-
 }
 
-if(e.boss){
-
+if(e.type==="midboss"||e.type==="final"){
 e.x+=Math.sin(Date.now()/200+e.moveSeed)*3
-
-e.y+=Math.sin(Date.now()/500+e.moveSeed)*1.2
-
 }
 
 if(e.x<40) e.x=40
 if(e.x>760) e.x=760
 
+
 if(e.cool<=0){
 firePattern(e)
-e.cool=70-phase*3
-if(e.cool<12)e.cool=12
+e.cool=60
 }else e.cool--
 
 }
 
 checkCollisions()
 
-if(enemies.length===0){
+if(enemies.length===0 && phase<10){
 phase++
 spawnEnemies()
 }
@@ -166,18 +184,98 @@ spawnEnemies()
 
 function firePattern(e){
 
-for(let i=0;i<12;i++){
-const a=i*Math.PI*2/12
+// 雑魚は直線攻撃
+if(e.type==="mob"){
 
-enemyBullets.push({x:e.x,y:e.y,vx:Math.cos(a)*2,vy:Math.sin(a)*2})
+enemyBullets.push({
+x:e.x,
+y:e.y,
+vx:0,
+vy:4
+})
 
 }
 
-if(e.boss){
-for(let i=0;i<24;i++){
-const a=i*Math.PI*2/24+Date.now()/300
-enemyBullets.push({x:e.x,y:e.y,vx:Math.cos(a)*3,vy:Math.sin(a)*3})
+// 中ボス 花弾幕
+if(e.type==="midboss"){
+
+for(let i=0;i<16;i++){
+
+const a=i*Math.PI*2/16+Date.now()/400
+
+
+enemyBullets.push({
+x:e.x,
+y:e.y,
+vx:Math.cos(a)*2.5,
+vy:Math.sin(a)*2.5
+
+})
+
 }
+
+}
+
+// ラスボス特殊攻撃
+if(e.type==="final"){
+
+// 花弾幕
+for(let i=0;i<20;i++){
+
+const a=i*Math.PI*2/20+Date.now()/300
+
+
+enemyBullets.push({
+x:e.x,
+y:e.y,
+vx:Math.cos(a)*3,
+vy:Math.sin(a)*3
+
+})
+
+}
+
+// 分裂弾
+if(Math.random()<0.4){
+
+enemyBullets.push({
+x:e.x,
+y:e.y,
+vx:0,
+vy:3,
+split:true
+
+})
+
+}
+
+// 壁反射弾
+if(Math.random()<0.3){
+
+enemyBullets.push({
+x:e.x,
+y:e.y,
+vx:3,
+vy:2,
+reflect:true
+})
+
+}
+
+// 子分召喚
+if(Math.random()<0.2){
+
+enemies.push({
+x:e.x+Math.random()*80-40,
+y:e.y+40,
+hp:30,
+cool:40,
+type:"mob",
+moveSeed:Math.random()*1000
+})
+
+}
+
 }
 
 }
@@ -198,21 +296,21 @@ if(e.hp<=0){
 score+=100
 createExplosion(e.x,e.y)
 
-if(e.boss && e.form===1){
+// 第二形態
+if((e.type==="midboss"||e.type==="final") && e.form===1){
+
 e.form=2
+
 e.hp=400
 return
+
 }
 
 let drop=Math.random()
 
-if(drop<0.40){
-items.push({x:e.x,y:e.y,type:"heal"})
-}else if(drop<0.43){
-items.push({x:e.x,y:e.y,type:"life"})
-}else if(drop<0.55){
-items.push({x:e.x,y:e.y,type:"shield"})
-}
+if(drop<0.40) items.push({x:e.x,y:e.y,type:"heal"})
+else if(drop<0.43) items.push({x:e.x,y:e.y,type:"life"})
+else if(drop<0.55) items.push({x:e.x,y:e.y,type:"shield"})
 
 
 enemies.splice(ei,1)
@@ -226,6 +324,28 @@ enemies.splice(ei,1)
 })
 
 enemyBullets.forEach((b,bi)=>{
+
+// 分裂弾
+if(b.split && b.y>300){
+
+b.split=false
+
+for(let i=0;i<6;i++){
+
+const a=i*Math.PI*2/6
+
+enemyBullets.push({
+x:b.x,
+y:b.y,
+vx:Math.cos(a)*3,
+vy:Math.sin(a)*3
+
+})
+
+}
+
+}
+
 
 const dx=b.x-player.x
 const dy=b.y-player.y
@@ -259,8 +379,8 @@ items.forEach((i,ii)=>{
 if(Math.abs(i.x-player.x)<20 && Math.abs(i.y-player.y)<20){
 
 if(i.type==="heal") player.hp=Math.min(100,player.hp+30)
-if(i.type==="shield") player.inv=180
 if(i.type==="life") player.lives++
+if(i.type==="shield") player.inv=180
 
 items.splice(ii,1)
 
@@ -294,8 +414,11 @@ ctx.fillRect(player.x-2,player.y-2,4,4)
 
 function drawEnemy(e){
 
-ctx.fillStyle=e.boss?"purple":"red"
-ctx.fillRect(e.x-10,e.y-10,20,20)
+if(e.type==="mob") ctx.fillStyle="red"
+if(e.type==="midboss") ctx.fillStyle="purple"
+if(e.type==="final") ctx.fillStyle="orange"
+
+ctx.fillRect(e.x-12,e.y-12,24,24)
 
 }
 

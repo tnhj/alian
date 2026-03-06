@@ -192,9 +192,9 @@ shoot:80-Math.min(phase*5,50)
 function spawnBoss(){
 
 boss={
-x:350,
-y:80,
-vx:2,
+x:300,
+y:60,
+vx:3,
 hp:300,
 max:300,
 phase2:false,
@@ -223,27 +223,38 @@ explosions.push({x,y,frame:0})
 
 function splitShot(x,y){
 
-enemyBullets.push({x,y,vx:-2,vy:3})
-enemyBullets.push({x,y,vx:0,vy:3})
-enemyBullets.push({x,y,vx:2,vy:3})
+for(let i=-2;i<=2;i++){
+
+enemyBullets.push({
+x,y,
+vx:i*1.5,
+vy:3
+})
+
+}
 
 }
 
 function bounceShot(x,y){
 
-enemyBullets.push({x,y,vx:3,vy:2,bounce:true})
+enemyBullets.push({x,y,vx:4,vy:2,bounce:true})
+enemyBullets.push({x,y,vx:-4,vy:2,bounce:true})
 
 }
 
 function summonMinion(){
 
+for(let i=0;i<2;i++){
+
 enemies.push({
-x:boss.x,
-y:boss.y+40,
+x:boss.x+Math.random()*80,
+y:boss.y+60,
 vx:(Math.random()*2-1)*2,
 vy:(Math.random()*2-1)*2,
-shoot:100
+shoot:80
 })
+
+}
 
 }
 
@@ -292,7 +303,9 @@ b.x+=b.vx||0
 b.y+=b.vy
 
 if(b.bounce){
+
 if(b.x<0||b.x>800)b.vx*=-1
+
 }
 
 })
@@ -321,7 +334,7 @@ bullets.forEach((b,bi)=>{
 
 enemies.forEach((e,ei)=>{
 
-if(Math.abs(b.x-e.x)<15 && Math.abs(b.y-e.y)<15){
+if(Math.abs(b.x-e.x)<18 && Math.abs(b.y-e.y)<18){
 
 explosion(e.x,e.y)
 
@@ -356,27 +369,37 @@ if(boss){
 boss.timer++
 
 boss.x+=boss.vx
-boss.y+=Math.sin(boss.timer*0.05)*1
+boss.y+=Math.sin(boss.timer*0.05)*1.5
 
-if(boss.x<0||boss.x>700)boss.vx*=-1
+if(boss.x<0||boss.x>650)boss.vx*=-1
 
 if(boss.hp<150 && !boss.phase2){
+
 boss.phase2=true
+
 }
 
-if(boss.timer%90==0) splitShot(boss.x+30,boss.y)
+if(boss.timer%70==0) splitShot(boss.x+60,boss.y)
 
-if(boss.timer%140==0) bounceShot(boss.x+30,boss.y)
+if(boss.timer%120==0) bounceShot(boss.x+60,boss.y)
 
-if(boss.timer%200==0) summonMinion()
+if(boss.timer%180==0) summonMinion()
 
-if(boss.phase2 && boss.timer%160==0){
+if(boss.phase2 && boss.timer%90==0){
+
+enemyBullets.push({
+x:boss.x+60,
+y:boss.y,
+vx:0,
+vy:10,
+laser:true
+})
 
 enemyBullets.push({
 x:boss.x+30,
 y:boss.y,
 vx:0,
-vy:8,
+vy:10,
 laser:true
 })
 
@@ -384,7 +407,7 @@ laser:true
 
 bullets.forEach((b,i)=>{
 
-if(Math.abs(b.x-boss.x)<50 && Math.abs(b.y-boss.y)<30){
+if(Math.abs(b.x-boss.x)<80 && Math.abs(b.y-boss.y)<50){
 
 boss.hp-=10
 explosion(b.x,b.y)
@@ -424,7 +447,7 @@ ctx.fillRect(b.x,b.y,3,8)
 
 enemyBullets.forEach(b=>{
 ctx.fillStyle=b.laser?"cyan":"red"
-ctx.fillRect(b.x,b.y,5,b.laser?20:10)
+ctx.fillRect(b.x,b.y,6,b.laser?24:10)
 })
 
 enemies.forEach(e=>{
@@ -432,7 +455,7 @@ drawSprite(enemySprite,e.x,e.y,7,"white")
 })
 
 if(boss){
-drawSprite(bossSprite,boss.x,boss.y,9,boss.phase2?"purple":"orange")
+drawSprite(bossSprite,boss.x,boss.y,16,boss.phase2?"purple":"orange")
 }
 
 explosions.forEach(e=>{

@@ -79,7 +79,6 @@ const ctx=canvas.getContext("2d");
 let keys={};
 
 document.addEventListener("keydown",e=>{
-
 keys[e.key]=true;
 
 if(e.key==="Enter" && !gameStarted){
@@ -95,7 +94,6 @@ let bullets=[];
 let enemyBullets=[];
 let enemies=[];
 let explosions=[];
-
 let boss=null;
 
 let hp=100;
@@ -131,16 +129,20 @@ function spawnEnemies(){
 
 enemies=[];
 
-let count=5+phase*3;
+let count=6+phase*4;
 
 for(let i=0;i<count;i++){
 
 enemies.push({
+
 x:Math.random()*550,
 y:40+Math.random()*150,
-vx:(Math.random()-0.5)*(1+phase*0.5),
+
+vx:(Math.random()-0.5)*(2+phase*0.6),
+
 w:24,
-h:16
+h:24
+
 });
 
 }
@@ -150,11 +152,11 @@ h:16
 function spawnBoss(){
 
 boss={
-x:260,
+x:200,
 y:80,
-w:80,
-h:40,
-vx:2,
+w:120,
+h:80,
+vx:3,
 hp:300
 };
 
@@ -171,24 +173,14 @@ requestAnimationFrame(loop);
 
 function update(){
 
-if(!gameStarted || gameOver || gameClear) return;
+if(!gameStarted||gameOver||gameClear)return;
 
 movePlayer();
-
 updateBullets();
-
 updateEnemies();
-
 updateBoss();
-
 updateExplosions();
-
 updateUI();
-
-if(hp<=0){
-gameOver=true;
-showText("GAME OVER");
-}
 
 }
 
@@ -210,7 +202,7 @@ let shootTimer=0;
 
 function shoot(){
 
-if(shootTimer>0) return;
+if(shootTimer>0)return;
 
 bullets.push({
 x:player.x+14,
@@ -261,7 +253,7 @@ bullets.splice(i,1);
 
 if(boss.hp<=0){
 
-spawnExplosion(boss.x,boss.y,50);
+spawnExplosion(boss.x,boss.y);
 
 boss=null;
 
@@ -282,11 +274,21 @@ b.y+=b.vy;
 
 if(b.type==="bounce"){
 
-if(b.x<0 || b.x>600) b.vx*=-1;
+if(b.x<0||b.x>600) b.vx*=-1;
 
 }
 
-if(b.y>600) enemyBullets.splice(i,1);
+if(b.type==="split" && b.y>250){
+
+enemyBullets.push({x:b.x,y:b.y,vx:-3,vy:3,w:6,h:6});
+enemyBullets.push({x:b.x,y:b.y,vx:3,vy:3,w:6,h:6});
+enemyBullets.splice(i,1);
+
+}
+
+if(b.y>600){
+enemyBullets.splice(i,1);
+}
 
 if(hit(b,player)){
 
@@ -295,6 +297,13 @@ hp-=10;
 enemyBullets.splice(i,1);
 
 spawnExplosion(player.x,player.y);
+
+if(hp<=0){
+
+gameOver=true;
+showText("GAME OVER");
+
+}
 
 }
 
@@ -312,13 +321,19 @@ if(e.x<0||e.x>560){
 e.vx*=-1;
 }
 
-if(Math.random()<0.01+phase*0.003){
+if(Math.random()<0.02+phase*0.01){
 
 enemyBullets.push({
-x:e.x+12,
-y:e.y,
-vx:(Math.random()-0.5)*2,
-vy:3
+
+x:e.x+10,
+y:e.y+20,
+
+vx:(Math.random()-0.5)*3,
+vy:4+phase*0.8,
+
+w:6,
+h:8
+
 });
 
 }
@@ -328,7 +343,6 @@ vy:3
 if(enemies.length===0){
 
 phase++;
-
 phaseProgress=0;
 
 if(phase<5){
@@ -343,72 +357,99 @@ spawnBoss();
 
 function updateBoss(){
 
-if(!boss) return;
+if(!boss)return;
 
 boss.x+=boss.vx;
 
-if(boss.x<0||boss.x>520){
+if(boss.x<0||boss.x>480){
 boss.vx*=-1;
 }
 
 let r=Math.random();
 
-if(r<0.02){
+if(r<0.05){
 
 enemyBullets.push({
-x:boss.x+40,
-y:boss.y+40,
+x:boss.x+60,
+y:boss.y+60,
 vx:0,
 vy:4,
-type:"split"
+type:"split",
+w:6,
+h:6
 });
 
 }
 
-if(r<0.035){
+else if(r<0.08){
 
 enemyBullets.push({
-x:boss.x+40,
-y:boss.y+40,
+x:boss.x+60,
+y:boss.y+60,
 vx:3,
 vy:3,
-type:"bounce"
+type:"bounce",
+w:6,
+h:6
 });
 
 }
 
-if(r<0.045){
+else if(r<0.10){
 
 enemies.push({
-x:boss.x,
-y:boss.y+50,
+
+x:boss.x+Math.random()*100,
+y:boss.y+80,
+
 vx:(Math.random()-0.5)*3,
+
 w:24,
-h:16
+h:24
+
 });
 
 }
 
 }
 
-function spawnExplosion(x,y,size=30){
+function spawnExplosion(x,y){
 
 explosions.push({
+
 x:x,
 y:y,
-t:20,
-size:size
+frame:0,
+timer:0
+
 });
 
 }
+
+const explosionFrames=[
+
+[[0,1,0],[1,1,1],[0,1,0]],
+[[1,0,1],[0,1,0],[1,0,1]],
+[[1,1,1],[1,0,1],[1,1,1]]
+
+];
 
 function updateExplosions(){
 
 explosions.forEach((e,i)=>{
 
-e.t--;
+e.timer++;
 
-if(e.t<=0) explosions.splice(i,1);
+if(e.timer>6){
+
+e.frame++;
+e.timer=0;
+
+}
+
+if(e.frame>=explosionFrames.length){
+explosions.splice(i,1);
+}
 
 });
 
@@ -436,35 +477,72 @@ drawExplosions();
 
 }
 
+function drawPixel(x,y,data,color,size){
+
+ctx.fillStyle=color;
+
+for(let r=0;r<data.length;r++){
+
+for(let c=0;c<data[r].length;c++){
+
+if(data[r][c]){
+
+ctx.fillRect(
+x+c*size,
+y+r*size,
+size,
+size
+);
+
+}
+
+}
+
+}
+
+}
+
+const playerSprite=[
+[0,0,1,0,0],
+[0,1,1,1,0],
+[1,1,1,1,1],
+[1,0,1,0,1]
+];
+
+const enemySprite=[
+[0,1,0,1,0],
+[1,1,1,1,1],
+[1,0,1,0,1],
+[0,1,0,1,0]
+];
+
+const bossSprite=[
+[0,0,1,1,1,1,1,1,1,1,1,0,0],
+[0,1,1,0,1,1,1,1,0,1,1,1,0],
+[1,1,1,1,1,1,1,1,1,1,1,1,1],
+[1,1,0,1,0,1,1,1,0,1,0,1,1],
+[1,1,1,1,1,1,1,1,1,1,1,1,1],
+[0,1,1,1,0,1,1,1,0,1,1,1,0],
+[0,0,1,1,1,0,0,0,1,1,1,0,0]
+];
+
 function drawPlayer(){
-
-ctx.fillStyle="cyan";
-
-ctx.fillRect(player.x,player.y,30,20);
-ctx.fillRect(player.x+10,player.y-10,10,10);
-
+drawPixel(player.x,player.y,playerSprite,"cyan",6);
 }
 
 function drawEnemies(){
 
-ctx.fillStyle="lime";
-
 enemies.forEach(e=>{
-
-ctx.fillRect(e.x,e.y,20,16);
-
+drawPixel(e.x,e.y,enemySprite,"lime",5);
 });
 
 }
 
 function drawBoss(){
 
-if(!boss) return;
+if(!boss)return;
 
-ctx.fillStyle="purple";
-
-ctx.fillRect(boss.x,boss.y,80,40);
-ctx.fillRect(boss.x+20,boss.y-20,40,20);
+drawPixel(boss.x,boss.y,bossSprite,"purple",6);
 
 }
 
@@ -488,19 +566,13 @@ function drawExplosions(){
 
 explosions.forEach(e=>{
 
-ctx.fillStyle="orange";
-
-ctx.beginPath();
-
-ctx.arc(
+drawPixel(
 e.x,
 e.y,
-e.size*(e.t/20),
-0,
-Math.PI*2
+explosionFrames[e.frame],
+"orange",
+8
 );
-
-ctx.fill();
 
 });
 
@@ -528,6 +600,5 @@ s.style.display="flex";
 }
 
 </script>
-
 </body>
 </html>

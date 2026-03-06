@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<title>鬼畜弾幕STG 溜め技＆ドット絵版</title>
+<title>鬼畜弾幕STG ドット絵完全版</title>
 <style>
 body{margin:0;overflow:hidden;background:black;font-family:sans-serif;color:white;}
 canvas{display:block;margin:auto;background:black;}
@@ -17,7 +17,7 @@ button{padding:10px 20px;font-size:20px;margin-top:20px;}
 <body>
 
 <div id="startScreen" class="screen">
-<h1>鬼畜弾幕STG 溜め技＆ドット絵版</h1>
+<h1>鬼畜弾幕STG ドット絵版</h1>
 <button onclick="startGame()">START</button>
 </div>
 
@@ -48,7 +48,7 @@ button{padding:10px 20px;font-size:20px;margin-top:20px;}
 const canvas=document.getElementById("game");
 const ctx=canvas.getContext("2d");
 let gameRunning=false,paused=false,frame=0,phase=1,score=0;
-let player={x:240,y:550,speed:4,hp:100,maxHP:100,bomb:3,invincible:0,shootCool:0,charge:0,charging:false};
+let player={x:240,y:550,speed:4,hp:100,maxHP:100,invincible:0,shootCool:0,charge:0,charging:false};
 let bullets=[],enemyBullets=[],enemies=[],boss=null,stars=[];
 let keys={};
 document.addEventListener("keydown",e=>keys[e.key]=true);
@@ -62,7 +62,7 @@ function dist(a,b){return Math.hypot(a.x-b.x,a.y-b.y);}
 // -------------------- START/RESTART --------------------
 function startGame(){
 document.getElementById("startScreen").classList.add("hidden");
-player.hp=player.maxHP;player.x=240;player.y=550;player.invincible=0;player.bomb=3;
+player.hp=player.maxHP;player.x=240;player.y=550;player.invincible=0;player.charge=0;player.charging=false;
 spawnStars();spawnPhase();gameRunning=true;loop();
 }
 function restart(){location.reload();}
@@ -83,28 +83,24 @@ function spawnBoss(){boss={x:240,y:-120,vx:0,vy:1,hp:600,maxHP:600,phase:0,timer
 
 // -------------------- PLAYER SHOOT --------------------
 function playerShoot(){
-if(player.charging) return; // 溜め中は通常発射不可
-if(player.shootCool>0) return;
-bullets.push({x:player.x,y:player.y,vy:-7,pierce:false});
+if(player.shootCool>0 || player.charging) return;
+bullets.push({x:player.x,y:player.y,vy:-7,pierce:false,damage:1});
 player.shootCool=10;
 }
-// 溜め技
-function playerCharge(){if(!player.charging){player.charging=true;player.charge=0;}}
+function playerCharge(){player.charging=true;player.charge=0;}
 function releaseCharge(){if(player.charging){
 bullets.push({x:player.x,y:player.y,vy:-10,pierce:true,damage:5});
 player.charging=false;player.charge=0;
 }}
 
-// SPACEキー制御
-setInterval(()=>{
-if(gameRunning && !paused){
-if(keys[" "]){
-if(!player.charging){playerCharge();} else {player.charge++; if(player.charge>60){releaseCharge();}}
-} else {if(player.charging && player.charge>0){releaseCharge();}}
-if(!keys[" "]) player.charging=false;
-playerShoot();
-}
-},100);
+// -------------------- INPUT HANDLING --------------------
+document.addEventListener("keydown",e=>{
+if(e.key===" " && !player.charging && player.shootCool<=0){playerShoot();}
+if(e.key===" " && !player.charging){playerCharge();}
+});
+document.addEventListener("keyup",e=>{
+if(e.key===" " && player.charging){releaseCharge();}
+});
 
 // -------------------- ENEMY SHOOT --------------------
 function enemyShoot(){
@@ -134,7 +130,8 @@ if(keys["ArrowDown"]||keys["s"])player.y+=player.speed;
 player.x=Math.max(10,Math.min(470,player.x));
 player.y=Math.max(360,Math.min(630,player.y));
 if(player.invincible>0)player.invincible--;
-if(player.shootCool>0)player.shootCool--;
+if(player.shootCool>0)player.shootCool++;
+if(player.charging) player.charge++;
 
 // STARS
 stars.forEach(s=>{s.y+=s.speed;if(s.y>640){s.y=0;s.x=rand(0,480);}});
@@ -146,18 +143,14 @@ enemies.forEach(e=>{e.x+=e.vx;e.y+=e.vy;if(e.x<40||e.x>440)e.vx*=-1;if(e.y<40||e
 enemyShoot();
 
 // BULLETS
-bullets.forEach((b,i)=>{
-b.y+=b.vy;
-if(b.y<0) bullets.splice(i,1);
-});
+bullets.forEach((b,i)=>{b.y+=b.vy;if(b.y<0) bullets.splice(i,1);});
 
 // ENEMY BULLETS
 enemyBullets.forEach((b,i)=>{b.x+=b.vx;b.y+=b.vy;if(b.y>640||b.y<0||b.x<0||b.x>480)enemyBullets.splice(i,1);});
 
 // COLLISIONS
 bullets.forEach((b,bi)=>{
-enemies.forEach((e,ei)=>{if(dist(b,e)<14){e.hp--;if(b.pierce){b.damage=5;}else{bullets.splice(bi,1);}
-if(e.hp<=0)enemies.splice(ei,1);score+=50;}});
+enemies.forEach((e,ei)=>{if(dist(b,e)<14){e.hp--;if(!b.pierce) bullets.splice(bi,1);if(e.hp<=0)enemies.splice(ei,1);score+=50;}});
 if(boss && dist(b,boss)<30){boss.hp-=(b.damage||1);if(!b.pierce) bullets.splice(bi,1);}
 });
 
@@ -173,11 +166,16 @@ document.getElementById("score").textContent=score;
 // -------------------- DRAW --------------------
 function draw(){
 ctx.clearRect(0,0,480,640);
+
 // STARS
 ctx.fillStyle="white";stars.forEach(s=>ctx.fillRect(s.x,s.y,2,2));
 
-// PLAYER ドット絵
-ctx.fillStyle="cyan";ctx.fillRect(player.x-6,player.y-6,12,12);
+// PLAYER ドット絵（3x3青ドット）
+ctx.fillStyle="cyan";
+ctx.fillRect(player.x-3,player.y-3,2,2);
+ctx.fillRect(player.x-2,player.y-3,2,2);
+ctx.fillRect(player.x-1,player.y-2,2,2);
+ctx.fillRect(player.x,player.y-1,2,2);
 
 // BULLETS
 ctx.fillStyle="yellow";bullets.forEach(b=>ctx.fillRect(b.x-3,b.y-8,6,8));
@@ -185,8 +183,13 @@ ctx.fillStyle="yellow";bullets.forEach(b=>ctx.fillRect(b.x-3,b.y-8,6,8));
 // ENEMY BULLETS
 ctx.fillStyle="red";enemyBullets.forEach(b=>{ctx.beginPath();ctx.arc(b.x,b.y,4,0,Math.PI*2);ctx.fill();});
 
-// ENEMIES ドット絵
-ctx.fillStyle="orange";enemies.forEach(e=>ctx.fillRect(e.x-12,e.y-12,24,24));
+// ENEMIES ドット絵（3x3オレンジ）
+ctx.fillStyle="orange";enemies.forEach(e=>{
+ctx.fillRect(e.x-2,e.y-2,2,2);
+ctx.fillRect(e.x-1,e.y-2,2,2);
+ctx.fillRect(e.x,e.y-1,2,2);
+ctx.fillRect(e.x+1,e.y,2,2);
+});
 
 // BOSS ドットアニメ
 if(boss){

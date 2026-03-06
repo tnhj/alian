@@ -21,6 +21,7 @@ canvas{background:#000;display:block;margin:auto;border:2px solid #333;image-ren
 <div class="bar"><div id="bossFill" class="fill"></div></div>
 </div>
 <div id="score">Score 0</div>
+<div id="phase">Phase 1</div>
 </div>
 <canvas id="game" width="420" height="600"></canvas>
 <script>
@@ -31,16 +32,16 @@ let keys={}
 let bullets=[]
 let enemyBullets=[]
 let enemies=[]
+let items=[]
 let boss=null
 let score=0
 let phase=1
 
-const player={x:210,y:540,hp:100,cool:0}
+const player={x:210,y:540,hp:100,cool:0,hit:4}
 
 window.addEventListener("keydown",e=>keys[e.key]=true)
 window.addEventListener("keyup",e=>keys[e.key]=false)
 
-// ---- pixel sprites ----
 const playerSprite=[
 "0011100",
 "0111110",
@@ -67,26 +68,24 @@ const bossSprite=[
 "00111100"
 ]
 
-function drawSprite(sprite,x,y,scale,color){
+function drawSprite(sprite,x,y,s,color){
  ctx.fillStyle=color
  for(let r=0;r<sprite.length;r++){
   for(let c=0;c<sprite[r].length;c++){
-   if(sprite[r][c]==="1"){
-    ctx.fillRect(x+c*scale,y+r*scale,scale,scale)
-   }
+   if(sprite[r][c]==="1")ctx.fillRect(x+c*s,y+r*s,s,s)
   }
  }
 }
 
 function spawnWave(){
  enemies=[]
- for(let i=0;i<10;i++){
-  enemies.push({x:40+i*34,y:60,t:Math.random()*10})
+ for(let i=0;i<10+phase;i++){
+  enemies.push({x:20+i*30,y:60,t:Math.random()*10})
  }
 }
 
 function spawnBoss(){
- boss={x:210,y:100,hp:2000,max:2000,t:0,pattern:0}
+ boss={x:210,y:100,hp:3000,max:3000,t:0,pattern:0}
  document.getElementById("bossUI").style.display="block"
 }
 
@@ -99,16 +98,52 @@ function flower(cx,cy,n,s,rot){
  }
 }
 
+// 新しい弾幕：回転リング
+function rotatingRing(cx,cy,n,s,rot){
+ for(let i=0;i<n;i++){
+  let a=i*Math.PI*2/n
+  shoot(cx,cy,Math.cos(a+rot)*s,Math.sin(a+rot)*s)
+ }
+}
+
+// 新しい弾幕：プレイヤー狙い拡散
+function aimedBurst(cx,cy,n,s){
+ let dx=player.x-cx
+ let dy=player.y-cy
+ let base=Math.atan2(dy,dx)
+ for(let i=0;i<n;i++){
+  let a=base+(i-n/2)*0.15
+  shoot(cx,cy,Math.cos(a)*s,Math.sin(a)*s)
+ }
+}
+
+// 新しい弾幕：ウェーブ弾
+function wavePattern(cx,cy,count,speed,t){
+ for(let i=0;i<count;i++){
+  let a=(i*0.4)+t
+  shoot(cx,cy,Math.cos(a)*speed,Math.sin(a)*speed)
+ }
+}(cx,cy,n,s,rot){
+ for(let i=0;i<n;i++){
+  let a=i*Math.PI*2/n+rot
+  shoot(cx,cy,Math.cos(a)*s,Math.sin(a)*s)
+ }
+}
+
 function spiral(cx,cy,n,s,rot){
  for(let i=0;i<n;i++){
-  let a=rot+i*0.2
+  let a=rot+i*0.25
   shoot(cx,cy,Math.cos(a)*s,Math.sin(a)*s)
  }
 }
 
 function rain(){
- for(let i=0;i<12;i++){
-  shoot(Math.random()*420,-10,0,3+Math.random()*2)
+ for(let i=0;i<14;i++)shoot(Math.random()*420,-10,0,3+Math.random()*2)
+}
+
+function dropItem(x,y){
+ if(Math.random()<0.25){
+  items.push({x:x,y:y})
  }
 }
 
@@ -130,29 +165,44 @@ function update(){
  enemyBullets.forEach(b=>{
   b.x+=b.vx
   b.y+=b.vy
-  if(Math.hypot(b.x-player.x,b.y-player.y)<10){
+  if(Math.hypot(b.x-player.x,b.y-player.y)<player.hit){
    player.hp-=4
    b.y=1000
   }
  })
+
  enemyBullets=enemyBullets.filter(b=>b.y<620&&b.x>-20&&b.x<440)
+
+ items.forEach(i=>{
+  i.y+=2
+  if(Math.hypot(i.x-player.x,i.y-player.y)<12){
+   player.hp=Math.min(100,player.hp+20)
+   i.y=1000
+  }
+ })
+ items=items.filter(i=>i.y<620)
 
  if(boss){
   boss.t+=0.05
-  boss.x=210+Math.sin(boss.t)*140
+  boss.x=210+Math.sin(boss.t)*150
 
   if(boss.pattern==0){
-   if(Math.random()<0.2)flower(boss.x,boss.y,30,2,boss.t)
-   if(boss.hp<1400)boss.pattern=1
+   flower(boss.x,boss.y,40,2,boss.t)
+   if(boss.hp<2000)boss.pattern=1
   }
   else if(boss.pattern==1){
-   spiral(boss.x,boss.y,10,2.5,boss.t*3)
+   spiral(boss.x,boss.y,20,3,boss.t*3)
    if(Math.random()<0.1)rain()
-   if(boss.hp<700)boss.pattern=2
+   if(boss.hp<1000)boss.pattern=2
   }
   else{
-   flower(boss.x,boss.y,60,2.5,boss.t*2)
-   spiral(boss.x,boss.y,20,3,boss.t*5)
+   flower(boss.x,boss.y,70,2.5,boss.t*2)
+   spiral(boss.x,boss.y,30,3.5,boss.t*5)
+   if(Math.random()<0.15)rotatingRing(boss.x,boss.y,24,2.8,boss.t)
+   if(Math.random()<0.12)aimedBurst(boss.x,boss.y,9,3.2)
+   if(Math.random()<0.1)wavePattern(boss.x,boss.y,14,2.6,boss.t)
+  }(boss.x,boss.y,70,2.5,boss.t*2)
+   spiral(boss.x,boss.y,30,3.5,boss.t*5)
   }
 
   bullets.forEach(b=>{
@@ -170,7 +220,7 @@ function update(){
 
  else{
   enemies.forEach(e=>{
-   e.t+=0.06
+   e.t+=0.07
    e.x+=Math.sin(e.t)*3
    e.y+=Math.sin(e.t*2)*0.6
 
@@ -183,6 +233,7 @@ function update(){
 
    bullets.forEach(b=>{
     if(Math.hypot(b.x-e.x,b.y-e.y)<12){
+     dropItem(e.x,e.y)
      e.y=1000
      score+=10
      b.y=-100
@@ -194,7 +245,9 @@ function update(){
 
   if(enemies.length==0){
    phase++
-   if(phase>=4)spawnBoss()
+   document.getElementById("phase").textContent="Phase "+phase
+
+   if(phase>=10)spawnBoss()
    else spawnWave()
   }
  }
@@ -216,13 +269,18 @@ function draw(){
  ctx.fillStyle="#f55"
  enemyBullets.forEach(b=>ctx.fillRect(b.x-2,b.y-2,4,4))
 
- enemies.forEach(e=>{
-  drawSprite(enemySprite,e.x-10,e.y-10,4,"#0f0")
+ enemies.forEach(e=>drawSprite(enemySprite,e.x-10,e.y-10,4,"#0f0"))
+
+ items.forEach(i=>{
+  ctx.fillStyle="#0ff"
+  ctx.fillRect(i.x-4,i.y-4,8,8)
  })
 
- if(boss){
-  drawSprite(bossSprite,boss.x-16,boss.y-16,4,"#f0f")
- }
+ if(boss)drawSprite(bossSprite,boss.x-16,boss.y-16,4,"#f0f")
+
+ // hitbox debug core
+ ctx.fillStyle="#fff"
+ ctx.fillRect(player.x-1,player.y-1,2,2)
 }
 
 function loop(){

@@ -11,16 +11,16 @@ body{
 margin:0;
 background:black;
 color:white;
-font-family:Orbitron, sans-serif;
+font-family:sans-serif;
 text-align:center;
 overflow:hidden;
 }
 
 canvas{
-background:linear-gradient(#020111,#000);
+background:#000;
+border:2px solid cyan;
 display:block;
 margin:auto;
-border:2px solid cyan;
 }
 
 #titleScreen{
@@ -51,21 +51,21 @@ button{
 padding:15px 40px;
 font-size:20px;
 margin-top:30px;
-cursor:pointer;
 background:black;
 color:cyan;
 border:2px solid cyan;
+cursor:pointer;
 }
 
 #ui{
-width:1000px;
+width:900px;
 margin:auto;
 }
 
 .bar{
 height:18px;
 background:#333;
-margin:6px;
+margin:5px;
 }
 
 .fill{
@@ -73,13 +73,8 @@ height:100%;
 background:lime;
 }
 
-.bossFill{
-background:red;
-}
-
-.phaseFill{
-background:cyan;
-}
+.bossFill{ background:red; }
+.phaseFill{ background:cyan; }
 
 </style>
 </head>
@@ -107,21 +102,16 @@ BOSS
 
 </div>
 
-<canvas id="game" width="1000" height="650"></canvas>
+<canvas id="game" width="900" height="600"></canvas>
 
 <script>
 
 const canvas=document.getElementById("game")
 const ctx=canvas.getContext("2d")
 
-let player={
-x:500,
-y:600,
-hp:100,
-speed:7
-}
+let player={x:450,y:550,hp:100,speed:7}
 
-let shield=0
+let shield=50
 let shieldMax=50
 
 let bullets=[]
@@ -156,34 +146,22 @@ if(phase<5){
 let count=6+phase*3
 
 for(let i=0;i<count;i++){
-
 enemies.push({
-x:100+i*100,
+x:80+i*100,
 y:80+Math.random()*100,
 hp:20,
 dir:Math.random()<0.5?-1:1
 })
-
 }
 
 }else{
-
 spawnBoss()
-
 }
 
 }
 
 function spawnBoss(){
-
-boss={
-x:500,
-y:100,
-hp:300,
-cool:0,
-phase:1
-}
-
+boss={x:450,y:100,hp:300,cool:0,phase:1}
 }
 
 setInterval(()=>{
@@ -210,20 +188,25 @@ if(!game)return
 if(keys["ArrowLeft"])player.x-=player.speed
 if(keys["ArrowRight"])player.x+=player.speed
 
-player.x=Math.max(20,Math.min(980,player.x))
+player.x=Math.max(20,Math.min(880,player.x))
 
-bullets.forEach(b=>b.y-=10)
+for(let i=bullets.length-1;i>=0;i--){
+bullets[i].y-=10
+if(bullets[i].y<0)bullets.splice(i,1)
+}
 
-enemyBullets.forEach(b=>{
-b.x+=b.vx
-b.y+=b.vy
-})
+for(let i=enemyBullets.length-1;i>=0;i--){
+enemyBullets[i].x+=enemyBullets[i].vx
+enemyBullets[i].y+=enemyBullets[i].vy
+
+if(enemyBullets[i].y>600)enemyBullets.splice(i,1)
+}
 
 enemies.forEach(e=>{
 
 e.x+=e.dir*(1+phase*0.4)
 
-if(e.x<20||e.x>980)e.dir*=-1
+if(e.x<20||e.x>880)e.dir*=-1
 
 if(Math.random()<0.01+phase*0.003)
 enemyShoot(e)
@@ -246,23 +229,13 @@ enemyBullets.push({x:boss.x,y:boss.y,vx:2,vy:4})
 
 }else{
 
-for(let i=0;i<6;i++)
+for(let i=0;i<8;i++){
 enemyBullets.push({
 x:boss.x,
 y:boss.y,
 vx:Math.cos(i)*4,
 vy:Math.sin(i)*4+3
 })
-
-if(Math.random()<0.4){
-
-enemies.push({
-x:boss.x+Math.random()*200-100,
-y:boss.y+50,
-hp:20,
-dir:1
-})
-
 }
 
 }
@@ -280,14 +253,19 @@ updateUI()
 
 function checkCollisions(){
 
-bullets.forEach((b,bi)=>{
+for(let bi=bullets.length-1;bi>=0;bi--){
 
-enemies.forEach((e,ei)=>{
+let b=bullets[bi]
+
+for(let ei=enemies.length-1;ei>=0;ei--){
+
+let e=enemies[ei]
 
 if(Math.abs(b.x-e.x)<20 && Math.abs(b.y-e.y)<20){
 
-e.hp-=10
 bullets.splice(bi,1)
+
+e.hp-=10
 
 if(e.hp<=0){
 
@@ -301,32 +279,34 @@ phaseProgress+=5
 
 }
 
+break
 }
 
-})
+}
 
 if(boss){
 
 if(Math.abs(b.x-boss.x)<70 && Math.abs(b.y-boss.y)<70){
 
-boss.hp-=10
 bullets.splice(bi,1)
+boss.hp-=10
+
 spawnExplosion(b.x,b.y)
 
 if(boss.hp<=0){
-
 alert("GAME CLEAR")
 location.reload()
-
 }
 
 }
 
 }
 
-})
+}
 
-enemyBullets.forEach((b,bi)=>{
+for(let bi=enemyBullets.length-1;bi>=0;bi--){
+
+let b=enemyBullets[bi]
 
 if(Math.abs(b.x-player.x)<20 && Math.abs(b.y-player.y)<20){
 
@@ -341,34 +321,11 @@ player.hp-=5
 spawnExplosion(player.x,player.y)
 
 if(player.hp<=0){
-
 alert("GAME OVER")
 location.reload()
-
 }
 
 }
-
-})
-
-items.forEach((it,ii)=>{
-
-it.y+=2
-
-if(Math.abs(it.x-player.x)<20 && Math.abs(it.y-player.y)<20){
-
-player.hp=Math.min(100,player.hp+20)
-items.splice(ii,1)
-
-}
-
-})
-
-if(enemies.length==0 && !boss){
-
-phase++
-phaseProgress=0
-startPhase()
 
 }
 
@@ -391,7 +348,7 @@ document.getElementById("boss").style.width=(boss.hp/300*100)+"%"
 
 function draw(){
 
-ctx.clearRect(0,0,1000,650)
+ctx.clearRect(0,0,900,600)
 
 drawPlayer()
 drawEnemies()
@@ -415,10 +372,8 @@ function drawEnemies(){
 ctx.fillStyle="lime"
 
 enemies.forEach(e=>{
-
 ctx.fillRect(e.x-15,e.y-10,30,20)
 ctx.fillRect(e.x-20,e.y,40,5)
-
 })
 
 }
@@ -428,7 +383,6 @@ function drawBoss(){
 if(!boss)return
 
 ctx.fillStyle="red"
-
 ctx.fillRect(boss.x-70,boss.y-40,140,80)
 ctx.fillRect(boss.x-40,boss.y-80,80,40)
 
@@ -437,21 +391,20 @@ ctx.fillRect(boss.x-40,boss.y-80,80,40)
 function drawBullets(){
 
 ctx.fillStyle="yellow"
-
 bullets.forEach(b=>ctx.fillRect(b.x-2,b.y-10,4,10))
 
 ctx.fillStyle="orange"
-
 enemyBullets.forEach(b=>ctx.fillRect(b.x-3,b.y-6,6,12))
 
 }
 
 function drawExplosions(){
 
-explosions.forEach((ex,i)=>{
+for(let i=explosions.length-1;i>=0;i--){
+
+let ex=explosions[i]
 
 ctx.fillStyle="orange"
-
 ctx.beginPath()
 ctx.arc(ex.x,ex.y,ex.frame*4,0,Math.PI*2)
 ctx.fill()
@@ -461,7 +414,7 @@ ex.frame++
 if(ex.frame>12)
 explosions.splice(i,1)
 
-})
+}
 
 }
 

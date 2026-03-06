@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<title>鬼畜弾幕STG 完全版</title>
+<title>鬼畜弾幕STG オリジナルアニメ版</title>
 <style>
 body{margin:0;overflow:hidden;background:black;font-family:sans-serif;color:white;}
 canvas{display:block;margin:auto;background:black;}
@@ -17,7 +17,7 @@ button{padding:10px 20px;font-size:20px;margin-top:20px;}
 <body>
 
 <div id="startScreen" class="screen">
-<h1>鬼畜弾幕STG</h1>
+<h1>鬼畜弾幕STG アニメ版</h1>
 <button onclick="startGame()">START</button>
 </div>
 
@@ -50,7 +50,6 @@ const ctx=canvas.getContext("2d");
 let gameRunning=false,paused=false,frame=0,phase=1,score=0;
 let player={x:240,y:550,speed:4,hp:100,maxHP:100,bomb:3,invincible:0,shootCool:0};
 let bullets=[],enemyBullets=[],enemies=[],boss=null,stars=[];
-
 let keys={};
 document.addEventListener("keydown",e=>keys[e.key]=true);
 document.addEventListener("keyup",e=>keys[e.key]=false);
@@ -76,42 +75,33 @@ function spawnPhase(){
 enemies=[];document.getElementById("phase").textContent=phase;
 if(phase<10){
 let count=phase*3;
-for(let i=0;i<count;i++){
-enemies.push({x:rand(20,460),y:rand(20,320),vx:rand(-1,1)*(1+phase*0.2),vy:rand(-1,1)*(1+phase*0.2),hp:2+phase,type:"small"});
-}
-if(phase===5||phase===7){
-enemies.push({x:240,y:120,vx:2,vy:1,hp:120,type:"mid"});
-}
+for(let i=0;i<count;i++){enemies.push({x:rand(40,440),y:rand(40,320),vx:rand(-1,1)*(1+phase*0.2),vy:rand(-1,1)*(1+phase*0.2),hp:3+phase,type:"small"});}
+if(phase===5||phase===7){enemies.push({x:240,y:120,vx:2,vy:1,hp:150,type:"mid"});}
 }else{spawnBoss();}
 }
-function spawnBoss(){
-boss={x:240,y:-120,vx:0,vy:1,hp:500,maxHP:500,phase:0,timer:0,entered:false};
-}
+function spawnBoss(){boss={x:240,y:-120,vx:0,vy:1,hp:600,maxHP:600,phase:0,timer:0,entered:false,animFrame:0};}
 
-// -------------------- SHOOT --------------------
+// -------------------- PLAYER SHOOT --------------------
 function playerShoot(){if(player.shootCool>0)return;
-bullets.push({x:player.x,y:player.y,vy:-7});player.shootCool=10;}
+bullets.push({x:player.x,y:player.y,vy:-7});
+player.shootCool=10;}
 setInterval(()=>{if(keys[" "] && gameRunning && !paused)playerShoot();},100);
 
 // -------------------- ENEMY SHOOT --------------------
 function enemyShoot(){
 enemies.forEach(e=>{
-if(e.type==="small" && frame%120===0){
-enemyBullets.push({x:e.x,y:e.y,vx:rand(-1,1),vy:2+phase*0.2});
-}
-if(e.type==="mid" && frame%60===0){
-for(let i=-1;i<=1;i++){enemyBullets.push({x:e.x,y:e.y,vx:i*1.5,vy:3});}
-}
+if(e.type==="small" && frame%100===0){enemyBullets.push({x:e.x,y:e.y,vx:rand(-1,1),vy:2+phase*0.3});}
+if(e.type==="mid" && frame%60===0){for(let i=-1;i<=1;i++){enemyBullets.push({x:e.x,y:e.y,vx:i*1.5,vy:3});}}
 });
 if(boss && boss.entered){bossPattern();}
 }
 
 // -------------------- BOSS PATTERN --------------------
-function bossPattern(){boss.timer++;
+function bossPattern(){boss.timer++; boss.animFrame++; 
 if(boss.phase===0 && boss.timer%50===0){for(let i=0;i<8;i++){let a=i*Math.PI/4;enemyBullets.push({x:boss.x,y:boss.y,vx:Math.cos(a)*2,vy:Math.sin(a)*2});}}
 if(boss.phase===1 && boss.timer%30===0){for(let i=0;i<16;i++){let a=i*Math.PI/8+boss.timer*0.05;enemyBullets.push({x:boss.x,y:boss.y,vx:Math.cos(a)*3,vy:Math.sin(a)*3});}}
-if(boss.phase===2 && boss.timer%40===0){for(let i=-3;i<=3;i++){enemyBullets.push({x:boss.x,y:boss.y,vx:i,vy:3});}}
-if(boss.hp<350)boss.phase=1;if(boss.hp<200)boss.phase=2;
+if(boss.phase===2 && boss.timer%40===0){for(let i=-4;i<=4;i++){enemyBullets.push({x:boss.x,y:boss.y,vx:i,vy:3});}}
+if(boss.hp<400)boss.phase=1;if(boss.hp<200)boss.phase=2;
 }
 
 // -------------------- UPDATE --------------------
@@ -131,17 +121,17 @@ if(player.shootCool>0)player.shootCool--;
 stars.forEach(s=>{s.y+=s.speed;if(s.y>640){s.y=0;s.x=rand(0,480);}});
 
 // ENEMIES
-enemies.forEach(e=>{e.x+=e.vx;e.y+=e.vy;if(e.x<20||e.x>460)e.vx*=-1;if(e.y<20||e.y>320)e.vy*=-1;});
+enemies.forEach(e=>{e.x+=e.vx;e.y+=e.vy;if(e.x<40||e.x>440)e.vx*=-1;if(e.y<40||e.y>320)e.vy*=-1;});
 
 // ENEMY SHOOT
 enemyShoot();
 
 // BULLETS
-bullets.forEach((b,i)=>{b.y+=b.vy; if(b.y<0) bullets.splice(i,1);});
-enemyBullets.forEach((b,i)=>{b.x+=b.vx;b.y+=b.vy;if(b.y>640||b.y<0||b.x<0||b.x>480) enemyBullets.splice(i,1);});
+bullets.forEach((b,i)=>{b.y+=b.vy;if(b.y<0)bullets.splice(i,1);});
+enemyBullets.forEach((b,i)=>{b.x+=b.vx;b.y+=b.vy;if(b.y>640||b.y<0||b.x<0||b.x>480)enemyBullets.splice(i,1);});
 
 // COLLISIONS
-bullets.forEach((b,bi)=>{enemies.forEach((e,ei)=>{if(dist(b,e)<12){e.hp--;bullets.splice(bi,1);if(e.hp<=0)enemies.splice(ei,1);score+=50;}});if(boss && dist(b,boss)<25){boss.hp--;bullets.splice(bi,1);}});
+bullets.forEach((b,bi)=>{enemies.forEach((e,ei)=>{if(dist(b,e)<14){e.hp--;bullets.splice(bi,1);if(e.hp<=0)enemies.splice(ei,1);score+=50;}});if(boss && dist(b,boss)<30){boss.hp--;bullets.splice(bi,1);}});
 enemyBullets.forEach((b,i)=>{if(dist(b,player)<10 && player.invincible<=0){player.hp-=10;player.invincible=30;enemyBullets.splice(i,1);if(player.hp<=0)gameOver();}});
 
 // NEXT PHASE
@@ -156,20 +146,34 @@ function draw(){
 ctx.clearRect(0,0,480,640);
 // STARS
 ctx.fillStyle="white";stars.forEach(s=>ctx.fillRect(s.x,s.y,2,2));
-// PLAYER
-ctx.fillStyle="cyan";ctx.fillRect(player.x-5,player.y-5,10,10);
+
+// PLAYER ドット絵
+ctx.fillStyle="cyan";ctx.fillRect(player.x-6,player.y-6,12,12);
+
 // BULLETS
-ctx.fillStyle="yellow";bullets.forEach(b=>ctx.fillRect(b.x-2,b.y-8,4,8));
+ctx.fillStyle="yellow";bullets.forEach(b=>ctx.fillRect(b.x-3,b.y-8,6,8));
+
 // ENEMY BULLETS
 ctx.fillStyle="red";enemyBullets.forEach(b=>{ctx.beginPath();ctx.arc(b.x,b.y,4,0,Math.PI*2);ctx.fill();});
+
 // ENEMIES
-ctx.fillStyle="orange";enemies.forEach(e=>ctx.fillRect(e.x-6,e.y-6,12,12));
-// BOSS
-if(boss){ctx.fillStyle="purple";ctx.fillRect(boss.x-25,boss.y-25,50,50);}
+ctx.fillStyle="orange";enemies.forEach(e=>ctx.fillRect(e.x-12,e.y-12,24,24));
+
+// BOSS ドットアニメ
+if(boss){
+ctx.fillStyle="purple";
+let offset=Math.sin(boss.animFrame*0.2)*5;
+ctx.fillRect(boss.x-30, boss.y-30+offset, 60,60);
+ctx.fillStyle="magenta";
+ctx.fillRect(boss.x-20, boss.y-20-offset, 40,40);
+}
 }
 
 // -------------------- GAME OVER --------------------
 function gameOver(){gameRunning=false;document.getElementById("gameOverScreen").classList.remove("hidden");}
+
+// -------------------- PAUSE --------------------
+function togglePause(){paused=!paused;document.getElementById("pauseText").classList.toggle("hidden",!paused);}
 
 // -------------------- LOOP --------------------
 function loop(){update();draw();if(gameRunning)requestAnimationFrame(loop);}

@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<title>鬼畜弾幕STG ドット絵完全版</title>
+<title>鬼畜弾幕STG 完全版</title>
 <style>
 body{margin:0;overflow:hidden;background:black;font-family:sans-serif;color:white;}
 canvas{display:block;margin:auto;background:black;}
@@ -11,13 +11,14 @@ button{padding:10px 20px;font-size:20px;margin-top:20px;}
 .hidden{display:none;}
 #ui{position:absolute;top:0;left:0;width:100%;pointer-events:none;}
 #playerHPbar,#bossHPbar{height:15px;background:red;transition:width .2s;margin:2px;}
+#lives{margin-top:2px;}
 #pauseText{position:absolute;top:40%;width:100%;font-size:40px;text-align:center;}
 </style>
 </head>
 <body>
 
 <div id="startScreen" class="screen">
-<h1>鬼畜弾幕STG ドット絵版</h1>
+<h1>鬼畜弾幕STG 完全版</h1>
 <button onclick="startGame()">START</button>
 </div>
 
@@ -37,6 +38,7 @@ button{padding:10px 20px;font-size:20px;margin-top:20px;}
 <div>BOSS HP</div>
 <div id="bossHPbar"></div>
 <div>Score: <span id="score">0</span> Phase: <span id="phase">1</span></div>
+<div id="lives">Lives: <span id="livesCount">3</span></div>
 </div>
 
 <div id="pauseText" class="hidden">PAUSE</div>
@@ -44,33 +46,33 @@ button{padding:10px 20px;font-size:20px;margin-top:20px;}
 <canvas id="game" width="480" height="640"></canvas>
 
 <script>
-// -------------------- STATE --------------------
 const canvas=document.getElementById("game");
 const ctx=canvas.getContext("2d");
+
 let gameRunning=false,paused=false,frame=0,phase=1,score=0;
-let player={x:240,y:550,speed:4,hp:100,maxHP:100,invincible:0,shootCool:0,charge:0,charging:false};
-let bullets=[],enemyBullets=[],enemies=[],boss=null,stars=[];
+let player={x:240,y:550,speed:4,hp:100,maxHP:100,invincible:0,shootCool:0,charge:0,charging:false,lives:3};
+let bullets=[],enemyBullets=[],enemies=[],boss=null,stars=[],items=[],explosions=[];
 let keys={};
 document.addEventListener("keydown",e=>keys[e.key]=true);
 document.addEventListener("keyup",e=>keys[e.key]=false);
 document.addEventListener("keydown",e=>{if(e.key==="p") togglePause();});
 
-// -------------------- UTILS --------------------
+// UTILS
 function rand(min,max){return Math.random()*(max-min)+min;}
-function dist(a,b){return Math.hypot(a.x-b.x,a.y-b.y);}
+function dist(a,b){return Math.hypot(a.x-b.x,b.y-a.y);}
 
-// -------------------- START/RESTART --------------------
+// START / RESTART
 function startGame(){
 document.getElementById("startScreen").classList.add("hidden");
-player.hp=player.maxHP;player.x=240;player.y=550;player.invincible=0;player.charge=0;player.charging=false;
+player.hp=player.maxHP;player.x=240;player.y=550;player.charge=0;player.charging=false;
 spawnStars();spawnPhase();gameRunning=true;loop();
 }
 function restart(){location.reload();}
 
-// -------------------- STARS --------------------
+// STARS
 function spawnStars(){stars=[];for(let i=0;i<120;i++){stars.push({x:rand(0,480),y:rand(0,640),speed:rand(1,3)});}}
 
-// -------------------- PHASE --------------------
+// PHASE
 function spawnPhase(){
 enemies=[];document.getElementById("phase").textContent=phase;
 if(phase<10){
@@ -81,19 +83,19 @@ if(phase===5||phase===7){enemies.push({x:240,y:120,vx:2,vy:1,hp:150,type:"mid"})
 }
 function spawnBoss(){boss={x:240,y:-120,vx:0,vy:1,hp:600,maxHP:600,phase:0,timer:0,entered:false,animFrame:0};}
 
-// -------------------- PLAYER SHOOT --------------------
+// PLAYER SHOOT
 function playerShoot(){
 if(player.shootCool>0 || player.charging) return;
-bullets.push({x:player.x,y:player.y,vy:-7,pierce:false,damage:1});
+bullets.push({x:player.x,y:player.y,vy:-7,pierce:false,damage:1,size:6});
 player.shootCool=10;
 }
 function playerCharge(){player.charging=true;player.charge=0;}
 function releaseCharge(){if(player.charging){
-bullets.push({x:player.x,y:player.y,vy:-10,pierce:true,damage:5});
+bullets.push({x:player.x,y:player.y,vy:-10,pierce:true,damage:5,size:12});
 player.charging=false;player.charge=0;
 }}
 
-// -------------------- INPUT HANDLING --------------------
+// INPUT
 document.addEventListener("keydown",e=>{
 if(e.key===" " && !player.charging && player.shootCool<=0){playerShoot();}
 if(e.key===" " && !player.charging){playerCharge();}
@@ -102,27 +104,33 @@ document.addEventListener("keyup",e=>{
 if(e.key===" " && player.charging){releaseCharge();}
 });
 
-// -------------------- ENEMY SHOOT --------------------
+// ENEMY SHOOT
 function enemyShoot(){
 enemies.forEach(e=>{
-if(e.type==="small" && frame%100===0){enemyBullets.push({x:e.x,y:e.y,vx:rand(-1,1),vy:2+phase*0.3});}
-if(e.type==="mid" && frame%60===0){for(let i=-1;i<=1;i++){enemyBullets.push({x:e.x,y:e.y,vx:i*1.5,vy:3});}}
+if(e.type==="small" && frame%100===0){enemyBullets.push({x:e.x,y:e.y,vx:rand(-1,1),vy:2+phase*0.3,size:8});}
+if(e.type==="mid" && frame%60===0){for(let i=-1;i<=1;i++){enemyBullets.push({x:e.x,y:e.y,vx:i*1.5,vy:3,size:10});}}
 });
 if(boss && boss.entered){bossPattern();}
 }
 
-// -------------------- BOSS PATTERN --------------------
+// BOSS PATTERN
 function bossPattern(){boss.timer++; boss.animFrame++;
-if(boss.phase===0 && boss.timer%50===0){for(let i=0;i<8;i++){let a=i*Math.PI/4;enemyBullets.push({x:boss.x,y:boss.y,vx:Math.cos(a)*2,vy:Math.sin(a)*2});}}
-if(boss.phase===1 && boss.timer%30===0){for(let i=0;i<16;i++){let a=i*Math.PI/8+boss.timer*0.05;enemyBullets.push({x:boss.x,y:boss.y,vx:Math.cos(a)*3,vy:Math.sin(a)*3});}}
-if(boss.phase===2 && boss.timer%40===0){for(let i=-4;i<=4;i++){enemyBullets.push({x:boss.x,y:boss.y,vx:i,vy:3});}}
+if(boss.phase===0 && boss.timer%50===0){for(let i=0;i<8;i++){let a=i*Math.PI/4;enemyBullets.push({x:boss.x,y:boss.y,vx:Math.cos(a)*2,vy:Math.sin(a)*2,size:12});}}
+if(boss.phase===1 && boss.timer%30===0){for(let i=0;i<16;i++){let a=i*Math.PI/8+boss.timer*0.05;enemyBullets.push({x:boss.x,y:boss.y,vx:Math.cos(a)*3,vy:Math.sin(a)*3,size:10});}}
+if(boss.phase===2 && boss.timer%40===0){for(let i=-4;i<=4;i++){enemyBullets.push({x:boss.x,y:boss.y,vx:i,vy:3,size:10});}}
 if(boss.hp<400)boss.phase=1;if(boss.hp<200)boss.phase=2;
 }
 
-// -------------------- UPDATE --------------------
+// ITEM SPAWN
+function spawnItem(x,y){items.push({x:x,y:y,vy:2,size:8});}
+
+// EXPLOSION
+function spawnExplosion(x,y,size){explosions.push({x,y,size,life:15});}
+
+// UPDATE
 function update(){if(!gameRunning||paused)return;frame++;
 
-// PLAYER
+// PLAYER MOVE
 if(keys["ArrowLeft"]||keys["a"])player.x-=player.speed;
 if(keys["ArrowRight"]||keys["d"])player.x+=player.speed;
 if(keys["ArrowUp"]||keys["w"])player.y-=player.speed;
@@ -137,7 +145,9 @@ if(player.charging) player.charge++;
 stars.forEach(s=>{s.y+=s.speed;if(s.y>640){s.y=0;s.x=rand(0,480);}});
 
 // ENEMIES
-enemies.forEach(e=>{e.x+=e.vx;e.y+=e.vy;if(e.x<40||e.x>440)e.vx*=-1;if(e.y<40||e.y>320)e.vy*=-1;});
+enemies.forEach((e,ei)=>{
+e.x+=e.vx;e.y+=e.vy;if(e.x<40||e.x>440)e.vx*=-1;if(e.y<40||e.y>320)e.vy*=-1;
+});
 
 // ENEMY SHOOT
 enemyShoot();
@@ -148,66 +158,82 @@ bullets.forEach((b,i)=>{b.y+=b.vy;if(b.y<0) bullets.splice(i,1);});
 // ENEMY BULLETS
 enemyBullets.forEach((b,i)=>{b.x+=b.vx;b.y+=b.vy;if(b.y>640||b.y<0||b.x<0||b.x>480)enemyBullets.splice(i,1);});
 
-// COLLISIONS
-bullets.forEach((b,bi)=>{
-enemies.forEach((e,ei)=>{if(dist(b,e)<14){e.hp--;if(!b.pierce) bullets.splice(bi,1);if(e.hp<=0)enemies.splice(ei,1);score+=50;}});
-if(boss && dist(b,boss)<30){boss.hp-=(b.damage||1);if(!b.pierce) bullets.splice(bi,1);}
+// ITEMS
+items.forEach((item,i)=>{
+item.y+=item.vy;
+if(dist(item,player)<10){player.hp=Math.min(player.maxHP,player.hp+20);items.splice(i,1);}
+if(item.y>640) items.splice(i,1);
 });
 
-enemyBullets.forEach((b,i)=>{if(dist(b,player)<10 && player.invincible<=0){player.hp-=10;player.invincible=30;enemyBullets.splice(i,1);if(player.hp<=0)gameOver();}});
+// COLLISIONS
+bullets.forEach((b,bi)=>{
+enemies.forEach((e,ei)=>{
+if(dist(b,e)<14){e.hp--;spawnExplosion(e.x,e.y,8);if(!b.pierce) bullets.splice(bi,1);
+if(e.hp<=0){if(Math.random()<0.2) spawnItem(e.x,e.y);enemies.splice(ei,1);score+=50;}
+}});
+if(boss && dist(b,boss)<30){boss.hp-=(b.damage||1);spawnExplosion(boss.x,boss.y,12);if(!b.pierce) bullets.splice(bi,1);}
+});
+
+enemyBullets.forEach((b,i)=>{if(dist(b,player)<10 && player.invincible<=0){player.hp-=10;player.invincible=30;spawnExplosion(player.x,player.y,10);enemyBullets.splice(i,1);
+if(player.hp<=0){player.lives--;if(player.lives>0){player.hp=player.maxHP;player.invincible=60;} else gameOver();}}});
 
 // NEXT PHASE
 if(enemies.length===0 && (!boss || boss.hp<=0)){phase++;if(phase<=10)spawnPhase();}
 document.getElementById("playerHPbar").style.width=(player.hp/player.maxHP*100)+"%";
 document.getElementById("bossHPbar").style.width=(boss?boss.hp/boss.maxHP*100:0)+"%";
 document.getElementById("score").textContent=score;
+document.getElementById("livesCount").textContent=player.lives;
+
+// EXPLOSIONS
+explosions.forEach((exp,i)=>{exp.life--; if(exp.life<=0) explosions.splice(i,1);});
 }
 
-// -------------------- DRAW --------------------
+// DRAW
 function draw(){
 ctx.clearRect(0,0,480,640);
-
 // STARS
 ctx.fillStyle="white";stars.forEach(s=>ctx.fillRect(s.x,s.y,2,2));
 
-// PLAYER ドット絵（3x3青ドット）
-ctx.fillStyle="cyan";
-ctx.fillRect(player.x-3,player.y-3,2,2);
-ctx.fillRect(player.x-2,player.y-3,2,2);
-ctx.fillRect(player.x-1,player.y-2,2,2);
-ctx.fillRect(player.x,player.y-1,2,2);
+// PLAYER
+ctx.fillStyle="cyan";ctx.fillRect(player.x-3,player.y-3,6,6);
+ctx.fillRect(player.x-2,player.y-5,2,2);
+ctx.fillRect(player.x+1,player.y-5,2,2);
 
 // BULLETS
-ctx.fillStyle="yellow";bullets.forEach(b=>ctx.fillRect(b.x-3,b.y-8,6,8));
+bullets.forEach(b=>ctx.fillRect(b.x-b.size/2,b.y-b.size,b.size,b.size*1.5));
 
 // ENEMY BULLETS
-ctx.fillStyle="red";enemyBullets.forEach(b=>{ctx.beginPath();ctx.arc(b.x,b.y,4,0,Math.PI*2);ctx.fill();});
+ctx.fillStyle="red";enemyBullets.forEach(b=>{ctx.beginPath();ctx.arc(b.x,b.y,b.size/2,0,Math.PI*2);ctx.fill();});
 
-// ENEMIES ドット絵（3x3オレンジ）
+// ENEMIES
 ctx.fillStyle="orange";enemies.forEach(e=>{
-ctx.fillRect(e.x-2,e.y-2,2,2);
-ctx.fillRect(e.x-1,e.y-2,2,2);
-ctx.fillRect(e.x,e.y-1,2,2);
-ctx.fillRect(e.x+1,e.y,2,2);
+ctx.fillRect(e.x-4,e.y-4,4,4);
+ctx.fillRect(e.x-2,e.y-4,4,4);
+ctx.fillRect(e.x-1,e.y-2,4,4);
+ctx.fillRect(e.x+1,e.y,3,3);
 });
 
-// BOSS ドットアニメ
+// ITEMS
+ctx.fillStyle="lime";items.forEach(it=>ctx.fillRect(it.x-it.size/2,it.y-it.size/2,it.size,it.size));
+
+// EXPLOSIONS
+ctx.fillStyle="yellow";explosions.forEach(exp=>{ctx.globalAlpha=exp.life/15;ctx.fillRect(exp.x-exp.size/2,exp.y-exp.size/2,exp.size,exp.size);ctx.globalAlpha=1;});
+
+// BOSS
 if(boss){
-ctx.fillStyle="purple";
-let offset=Math.sin(boss.animFrame*0.2)*5;
+ctx.fillStyle="purple";let offset=Math.sin(boss.animFrame*0.2)*5;
 ctx.fillRect(boss.x-30, boss.y-30+offset, 60,60);
-ctx.fillStyle="magenta";
-ctx.fillRect(boss.x-20, boss.y-20-offset, 40,40);
+ctx.fillStyle="magenta";ctx.fillRect(boss.x-20, boss.y-20-offset, 40,40);
 }
 }
 
-// -------------------- GAME OVER --------------------
+// GAME OVER
 function gameOver(){gameRunning=false;document.getElementById("gameOverScreen").classList.remove("hidden");}
 
-// -------------------- PAUSE --------------------
+// PAUSE
 function togglePause(){paused=!paused;document.getElementById("pauseText").classList.toggle("hidden",!paused);}
 
-// -------------------- LOOP --------------------
+// LOOP
 function loop(){update();draw();if(gameRunning)requestAnimationFrame(loop);}
 </script>
 

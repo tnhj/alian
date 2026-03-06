@@ -105,9 +105,11 @@ const playerSprite=[
 ]
 
 const enemySprite=[
-"111",
-"101",
-"111"
+"01110",
+"11111",
+"10101",
+"11111",
+"01110"
 ]
 
 const bossSprite=[
@@ -134,6 +136,7 @@ let boss=null
 let phase=1
 let progress=0
 let maxProgress=100
+let gameOver=false
 
 function startGame(){
 
@@ -246,6 +249,8 @@ shoot:100
 
 function update(){
 
+if(gameOver)return
+
 if(keys["ArrowLeft"]) player.x-=player.speed
 if(keys["ArrowRight"]) player.x+=player.speed
 
@@ -254,7 +259,6 @@ player.x=Math.max(0,Math.min(780,player.x))
 if(keys[" "] && Math.random()<0.3) shoot()
 
 bullets.forEach(b=>b.y+=b.vy)
-
 bullets=bullets.filter(b=>b.y>-20)
 
 enemies.forEach(e=>{
@@ -270,8 +274,8 @@ e.shoot--
 if(e.shoot<0){
 
 enemyBullets.push({
-x:e.x+5,
-y:e.y+5,
+x:e.x+10,
+y:e.y+10,
 vx:0,
 vy:3+phase*0.3
 })
@@ -288,20 +292,26 @@ b.x+=b.vx||0
 b.y+=b.vy
 
 if(b.bounce){
-
 if(b.x<0||b.x>800)b.vx*=-1
-
 }
 
 })
 
 enemyBullets.forEach((b,i)=>{
 
-if(Math.abs(b.x-player.x)<12 && Math.abs(b.y-player.y)<12){
+if(Math.abs(b.x-player.x)<14 && Math.abs(b.y-player.y)<14){
 
 player.hp-=5
 explosion(player.x,player.y)
 enemyBullets.splice(i,1)
+
+if(player.hp<=0){
+
+gameOver=true
+alert("GAME OVER")
+location.reload()
+
+}
 
 }
 
@@ -311,7 +321,7 @@ bullets.forEach((b,bi)=>{
 
 enemies.forEach((e,ei)=>{
 
-if(Math.abs(b.x-e.x)<10 && Math.abs(b.y-e.y)<10){
+if(Math.abs(b.x-e.x)<15 && Math.abs(b.y-e.y)<15){
 
 explosion(e.x,e.y)
 
@@ -346,14 +356,12 @@ if(boss){
 boss.timer++
 
 boss.x+=boss.vx
-boss.y+=Math.sin(boss.timer*0.05)*0.8
+boss.y+=Math.sin(boss.timer*0.05)*1
 
-if(boss.x<0||boss.x>720)boss.vx*=-1
+if(boss.x<0||boss.x>700)boss.vx*=-1
 
 if(boss.hp<150 && !boss.phase2){
-
 boss.phase2=true
-
 }
 
 if(boss.timer%90==0) splitShot(boss.x+30,boss.y)
@@ -376,7 +384,7 @@ laser:true
 
 bullets.forEach((b,i)=>{
 
-if(Math.abs(b.x-boss.x)<40 && Math.abs(b.y-boss.y)<20){
+if(Math.abs(b.x-boss.x)<50 && Math.abs(b.y-boss.y)<30){
 
 boss.hp-=10
 explosion(b.x,b.y)
@@ -389,7 +397,7 @@ bullets.splice(i,1)
 
 if(boss.hp<=0){
 
-alert("GAME CLEAR")
+alert("GAME CLEAR!")
 location.reload()
 
 }
@@ -397,7 +405,6 @@ location.reload()
 }
 
 explosions.forEach(e=>e.frame++)
-
 explosions=explosions.filter(e=>e.frame<20)
 
 updateUI()
@@ -417,25 +424,20 @@ ctx.fillRect(b.x,b.y,3,8)
 
 enemyBullets.forEach(b=>{
 ctx.fillStyle=b.laser?"cyan":"red"
-ctx.fillRect(b.x,b.y,4,b.laser?20:8)
+ctx.fillRect(b.x,b.y,5,b.laser?20:10)
 })
 
 enemies.forEach(e=>{
-
-drawSprite(enemySprite,e.x,e.y,5,"white")
-
+drawSprite(enemySprite,e.x,e.y,7,"white")
 })
 
 if(boss){
-
-drawSprite(bossSprite,boss.x,boss.y,6,boss.phase2?"purple":"orange")
-
+drawSprite(bossSprite,boss.x,boss.y,9,boss.phase2?"purple":"orange")
 }
 
 explosions.forEach(e=>{
 
 ctx.fillStyle="orange"
-
 ctx.beginPath()
 ctx.arc(e.x,e.y,e.frame,0,Math.PI*2)
 ctx.fill()
@@ -451,9 +453,7 @@ document.getElementById("hpfill").style.width=player.hp*2+"px"
 document.getElementById("phasefill").style.width=(progress/maxProgress)*220+"px"
 
 if(boss){
-
 document.getElementById("bossfill").style.width=(boss.hp/boss.max)*220+"px"
-
 }
 
 }

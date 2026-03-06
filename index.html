@@ -2,14 +2,16 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<title>Galaxy Defender DX</title>
+<title>Galaxy Defender Ultimate</title>
 
 <style>
+
 body{
+margin:0;
 background:#03040a;
 color:white;
-text-align:center;
 font-family:monospace;
+text-align:center;
 }
 
 canvas{
@@ -17,13 +19,63 @@ background:black;
 border:3px solid #0ff;
 box-shadow:0 0 20px #0ff;
 }
+
+#titleScreen{
+position:absolute;
+width:100%;
+height:100%;
+background:black;
+display:flex;
+flex-direction:column;
+justify-content:center;
+align-items:center;
+}
+
+button{
+font-size:22px;
+padding:10px 30px;
+}
+
+#ui{
+width:800px;
+margin:auto;
+}
+
+.bar{
+height:14px;
+background:#333;
+margin:4px;
+}
+
+.fill{
+height:100%;
+}
+
 </style>
 </head>
 
 <body>
 
-<h2>🚀 Galaxy Defender DX</h2>
-<p>← → 移動　SPACE 攻撃</p>
+<div id="titleScreen">
+
+<h1>🚀 Galaxy Defender</h1>
+<p>SPACE SHOOTING GAME</p>
+<button onclick="startGame()">START</button>
+
+</div>
+
+<div id="ui">
+
+HP
+<div class="bar"><div id="hpBar" class="fill" style="background:#0f0;width:100%"></div></div>
+
+PHASE
+<div class="bar"><div id="phaseBar" class="fill" style="background:#0ff;width:0%"></div></div>
+
+BOSS
+<div class="bar"><div id="bossBar" class="fill" style="background:#f00;width:0%"></div></div>
+
+</div>
 
 <canvas id="game" width="800" height="600"></canvas>
 
@@ -31,6 +83,18 @@ box-shadow:0 0 20px #0ff;
 
 const canvas=document.getElementById("game")
 const ctx=canvas.getContext("2d")
+
+let gameRunning=false
+
+function startGame(){
+
+document.getElementById("titleScreen").style.display="none"
+gameRunning=true
+
+spawnEnemies()
+loop()
+
+}
 
 let keys={}
 document.addEventListener("keydown",e=>keys[e.key]=true)
@@ -44,31 +108,13 @@ let enemies=[]
 let explosions=[]
 
 let phase=1
+let enemiesKilled=0
+let enemiesNeeded=8
+
 let boss=null
 
-// ドット絵描画
-function drawSprite(sprite,x,y,scale,color){
+// ドット絵
 
-ctx.fillStyle=color
-
-for(let r=0;r<sprite.length;r++){
-for(let c=0;c<sprite[r].length;c++){
-
-if(sprite[r][c]==1){
-ctx.fillRect(
-x+c*scale,
-y+r*scale,
-scale,
-scale
-)
-}
-
-}
-}
-
-}
-
-// プレイヤー
 const playerSprite=[
 [0,1,0],
 [1,1,1],
@@ -76,21 +122,44 @@ const playerSprite=[
 [1,0,1]
 ]
 
-// 敵
 const enemySprite=[
 [1,0,1],
 [0,1,0],
 [1,1,1]
 ]
 
-// ボス
-const bossSprite=[
+const bossSprite1=[
 [0,1,1,1,1,1,0],
 [1,1,0,1,0,1,1],
 [1,1,1,1,1,1,1],
 [1,0,1,1,1,0,1],
 [1,1,1,0,1,1,1]
 ]
+
+const bossSprite2=[
+[1,1,1,1,1,1,1],
+[1,0,1,0,1,0,1],
+[1,1,1,1,1,1,1],
+[1,0,1,1,1,0,1],
+[1,1,0,1,0,1,1]
+]
+
+function drawSprite(sprite,x,y,scale,color){
+
+ctx.fillStyle=color
+
+for(let r=0;r<sprite.length;r++){
+for(let c=0;c<sprite[r].length;c++){
+
+if(sprite[r][c])
+ctx.fillRect(x+c*scale,y+r*scale,scale,scale)
+
+}
+}
+
+}
+
+// 敵
 
 function spawnEnemies(){
 
@@ -99,16 +168,21 @@ enemies=[]
 for(let i=0;i<5+phase;i++){
 
 enemies.push({
+
 x:Math.random()*760,
 y:Math.random()*200,
 vx:(Math.random()-0.5)*2,
 vy:(Math.random()-0.5)*2,
-hp:1
+hp:1,
+cool:80
+
 })
 
 }
 
 }
+
+// ボス
 
 function spawnBoss(){
 
@@ -122,6 +196,8 @@ cool:60
 }
 
 }
+
+// 攻撃
 
 function shoot(){
 
@@ -141,7 +217,19 @@ enemyBullets.push({x,y,vx:2,vy:3})
 
 }
 
+function fanShot(x,y){
+
+enemyBullets.push({x,y,vx:-3,vy:4})
+enemyBullets.push({x,y,vx:-1.5,vy:4})
+enemyBullets.push({x,y,vx:0,vy:4})
+enemyBullets.push({x,y,vx:1.5,vy:4})
+enemyBullets.push({x,y,vx:3,vy:4})
+
+}
+
 function update(){
+
+if(!gameRunning)return
 
 if(keys["ArrowLeft"]) player.x-=5
 if(keys["ArrowRight"]) player.x+=5
@@ -155,6 +243,7 @@ player.cool--
 bullets.forEach(b=>b.y+=b.vy)
 
 enemyBullets.forEach(b=>{
+
 b.x+=b.vx
 b.y+=b.vy
 
@@ -167,6 +256,8 @@ if(b.y<0||b.y>600) b.vy*=-1
 
 })
 
+// 雑魚敵
+
 enemies.forEach(e=>{
 
 e.x+=e.vx
@@ -175,7 +266,26 @@ e.y+=e.vy
 if(e.x<0||e.x>780) e.vx*=-1
 if(e.y<0||e.y>300) e.vy*=-1
 
+e.cool--
+
+if(e.cool<=0){
+
+enemyBullets.push({
+
+x:e.x+6,
+y:e.y+10,
+vx:(Math.random()-0.5)*2,
+vy:3
+
 })
+
+e.cool=80
+
+}
+
+})
+
+// 敵撃破
 
 bullets.forEach((b,bi)=>{
 
@@ -193,11 +303,15 @@ bullets.splice(bi,1)
 
 explosions.push({x:e.x,y:e.y,t:0})
 
+enemiesKilled++
+
 }
 
 })
 
 })
+
+// プレイヤー被弾
 
 enemyBullets.forEach((b,bi)=>{
 
@@ -209,12 +323,13 @@ b.y+10>player.y
 ){
 
 enemyBullets.splice(bi,1)
-
 player.hp-=5
 
 }
 
 })
+
+// ボス
 
 if(boss){
 
@@ -230,11 +345,10 @@ if(boss.cool<=0){
 
 let r=Math.random()
 
-// 分裂弾
-if(r<0.33){
+if(r<0.25){
 
 enemyBullets.push({
-x:boss.x+50,
+x:boss.x+40,
 y:boss.y+40,
 vx:0,
 vy:2,
@@ -243,20 +357,24 @@ split:true
 
 }
 
-// 反射弾
-else if(r<0.66){
+else if(r<0.5){
 
 enemyBullets.push({
-x:boss.x+50,
+x:boss.x+40,
 y:boss.y+40,
-vx:(Math.random()-0.5)*4,
-vy:3,
+vx:(Math.random()-0.5)*5,
+vy:4,
 reflect:true
 })
 
 }
 
-// 子分召喚
+else if(r<0.75){
+
+fanShot(boss.x+40,boss.y+40)
+
+}
+
 else{
 
 enemies.push({
@@ -264,14 +382,17 @@ x:boss.x,
 y:boss.y+50,
 vx:(Math.random()-0.5)*2,
 vy:2,
-hp:1
+hp:1,
+cool:60
 })
 
 }
 
-boss.cool=boss.phase==1?60:30
+boss.cool=boss.phase==1?50:25
 
 }
+
+// ボス被弾
 
 bullets.forEach((b,bi)=>{
 
@@ -285,52 +406,44 @@ b.y+10>boss.y
 boss.hp-=10
 bullets.splice(bi,1)
 
-explosions.push({x:b.x,y:b.y,t:0})
-
 }
 
 })
 
+document.getElementById("bossBar").style.width=(boss.hp/300*100)+"%"
+
 if(boss.hp<=0){
 
-alert("GAME CLEAR")
-
+alert("🎉 GAME CLEAR")
 location.reload()
 
 }
 
 }
 
-enemyBullets.forEach((b,bi)=>{
+// フェーズ進行
 
-if(b.split && b.y>250){
+if(!boss){
 
-splitBullet(b.x,b.y)
+document.getElementById("phaseBar").style.width=(enemiesKilled/enemiesNeeded*100)+"%"
 
-enemyBullets.splice(bi,1)
-
-}
-
-})
-
-explosions.forEach(e=>e.t++)
-explosions=explosions.filter(e=>e.t<20)
-
-if(!boss && enemies.length==0){
+if(enemiesKilled>=enemiesNeeded){
 
 phase++
+enemiesKilled=0
+enemiesNeeded+=4
 
 if(phase==5){
-
 spawnBoss()
-
 }else{
-
 spawnEnemies()
-
 }
 
 }
+
+}
+
+document.getElementById("hpBar").style.width=player.hp+"%"
 
 if(player.hp<=0){
 
@@ -352,7 +465,12 @@ drawSprite(enemySprite,e.x,e.y,5,"red")
 })
 
 if(boss){
-drawSprite(bossSprite,boss.x,boss.y,8,"magenta")
+
+if(boss.phase==1)
+drawSprite(bossSprite1,boss.x,boss.y,8,"magenta")
+else
+drawSprite(bossSprite2,boss.x,boss.y,8,"orange")
+
 }
 
 ctx.fillStyle="cyan"
@@ -367,18 +485,6 @@ enemyBullets.forEach(b=>{
 ctx.fillRect(b.x,b.y,4,10)
 })
 
-ctx.fillStyle="orange"
-
-explosions.forEach(e=>{
-ctx.beginPath()
-ctx.arc(e.x,e.y,e.t*2,0,Math.PI*2)
-ctx.fill()
-})
-
-ctx.fillStyle="white"
-ctx.fillText("HP:"+player.hp,10,20)
-ctx.fillText("PHASE:"+phase,10,40)
-
 }
 
 function loop(){
@@ -389,9 +495,6 @@ draw()
 requestAnimationFrame(loop)
 
 }
-
-spawnEnemies()
-loop()
 
 </script>
 

@@ -1,184 +1,213 @@
 <!DOCTYPE html>
-
 <html>
 <head>
 <meta charset="UTF-8">
-<title>Danmaku Invader</title>
+<title>弾幕ボスバトル</title>
+
 <style>
-body{margin:0;background:black;overflow:hidden}
-canvas{display:block;margin:auto;background:black}
+body{
+margin:0;
+background:black;
+overflow:hidden;
+font-family:sans-serif;
+color:white;
+text-align:center;
+}
+
+canvas{
+display:block;
+margin:auto;
+background:black;
+}
+
+#ui{
+position:absolute;
+top:0;
+left:0;
+width:100%;
+pointer-events:none;
+}
+
+#bossHP{
+height:20px;
+background:red;
+width:100%;
+transition:width .2s;
+}
+
+.screen{
+position:absolute;
+top:0;
+left:0;
+width:100%;
+height:100%;
+background:black;
+display:flex;
+justify-content:center;
+align-items:center;
+flex-direction:column;
+}
+
+button{
+padding:10px 20px;
+font-size:20px;
+margin-top:20px;
+}
+
+.hidden{
+display:none;
+}
+
+#pauseText{
+position:absolute;
+top:40%;
+width:100%;
+font-size:40px;
+}
 </style>
 </head>
 
 <body>
 
-<canvas id="game"></canvas>
+<div id="startScreen" class="screen">
+<h1>弾幕ボスバトル</h1>
+<button onclick="startGame()">START</button>
+</div>
+
+<div id="gameOverScreen" class="screen hidden">
+<h1>GAME OVER</h1>
+<button onclick="restart()">RETRY</button>
+</div>
+
+<div id="ui">
+<div id="bossHP"></div>
+</div>
+
+<div id="pauseText" class="hidden">PAUSE</div>
+
+<canvas id="game" width="480" height="640"></canvas>
 
 <script>
 
-const canvas=document.getElementById("game")
-const ctx=canvas.getContext("2d")
+const canvas = document.getElementById("game")
+const ctx = canvas.getContext("2d")
 
-canvas.width=600
-canvas.height=700
-
-let keys={}
-document.addEventListener("keydown",e=>keys[e.key]=true)
-document.addEventListener("keyup",e=>keys[e.key]=false)
-
-let phase=1
-let frame=0
-
-let player={
-x:300,
-y:620,
-speed:4,
-cool:0,
-hp:100,
-maxHp:100,
-power:1
-}
-
+let player
 let bullets=[]
 let enemyBullets=[]
-let enemies=[]
-let boss=null
-let items=[]
-let effects=[]
+let stars=[]
+let boss
+let keys={}
+let gameRunning=false
+let paused=false
 
-function spawnWave(){
-
-let count=3+phase*2
-
-for(let i=0;i<count;i++){
-
-enemies.push({
-
-x:Math.random()*560+20,
-y:Math.random()*260+30,
-
-vx:(Math.random()*2-1)*(1+phase*0.2),
-vy:(Math.random()*2-1)*(1+phase*0.2),
-
-hp:3+phase,
-type:"small"
-
+document.addEventListener("keydown",e=>{
+keys[e.key]=true
+if(e.key==="p")togglePause()
 })
 
-}
-
-if(phase==4||phase==7||phase==9){
-
-enemies.push({
-
-x:300,
-y:120,
-vx:2,
-vy:1,
-hp:120,
-type:"mid"
-
+document.addEventListener("keyup",e=>{
+keys[e.key]=false
 })
 
-}
+function startGame(){
 
-}
+document.getElementById("startScreen").classList.add("hidden")
 
-function spawnBoss(){
+player={
+x:240,
+y:550,
+speed:4
+}
 
 boss={
-x:300,
-y:120,
-vx:3,
-vy:2,
-hp:800,
-phase:1
+x:240,
+y:-100,
+hp:200,
+maxHP:200,
+phase:0,
+timer:0,
+entered:false
 }
 
-}
-
-function nextPhase(){
-
-phase++
-frame=0
-enemyBullets=[]
-enemies=[]
-
-if(phase<10){
-spawnWave()
-}else{
-spawnBoss()
-}
-
-}
-
-function shootFlower(x,y,count,speed){
-
-for(let i=0;i<count;i++){
-
-let a=i*(Math.PI*2/count)
-
-enemyBullets.push({
-x:x,
-y:y,
-vx:Math.cos(a)*speed,
-vy:Math.sin(a)*speed
+for(let i=0;i<120;i++){
+stars.push({
+x:Math.random()*480,
+y:Math.random()*640,
+speed:Math.random()*2+1
 })
-
 }
 
+gameRunning=true
+loop()
 }
 
-function shootSpiral(x,y,rot){
+function restart(){
+location.reload()
+}
+
+function togglePause(){
+
+if(!gameRunning)return
+
+paused=!paused
+document.getElementById("pauseText").classList.toggle("hidden")
+}
+
+function shoot(){
+bullets.push({
+x:player.x,
+y:player.y,
+speed:7
+})
+}
+
+setInterval(()=>{
+if(keys[" "] && gameRunning && !paused){
+shoot()
+}
+},120)
+
+function spawnPattern(){
+
+if(boss.phase===0){
 
 for(let i=0;i<8;i++){
-
-let a=rot+i*0.8
-
+let angle=i*Math.PI/4
 enemyBullets.push({
-
-x:x,
-y:y,
-vx:Math.cos(a)*2,
-vy:Math.sin(a)*2
-
+x:boss.x,
+y:boss.y,
+vx:Math.cos(angle)*2,
+vy:Math.sin(angle)*2
 })
-
 }
 
 }
 
-function playerShoot(){
+if(boss.phase===1){
 
-if(player.cool>0)return
-
-for(let i=0;i<player.power;i++){
-
-bullets.push({
-x:player.x+(i*10)-(player.power*5),
-y:player.y,
-vy:-8
+for(let i=0;i<16;i++){
+let angle=i*Math.PI/8+boss.timer*.05
+enemyBullets.push({
+x:boss.x,
+y:boss.y,
+vx:Math.cos(angle)*3,
+vy:Math.sin(angle)*3
 })
+}
 
 }
 
-player.cool=15
+if(boss.phase===2){
 
-}
-
-function explode(x,y){
-
-for(let i=0;i<10;i++){
-
-effects.push({
-
-x:x,
-y:y,
-vx:(Math.random()*4-2),
-vy:(Math.random()*4-2),
-life:30
-
+for(let i=-3;i<=3;i++){
+enemyBullets.push({
+x:boss.x,
+y:boss.y,
+vx:i,
+vy:3
 })
+}
 
 }
 
@@ -186,234 +215,84 @@ life:30
 
 function update(){
 
-frame++
+if(!gameRunning || paused)return
 
-if(keys["ArrowLeft"])player.x-=player.speed
-if(keys["ArrowRight"])player.x+=player.speed
-if(keys["ArrowUp"])player.y-=player.speed
-if(keys["ArrowDown"])player.y+=player.speed
+boss.timer++
 
-if(keys[" "])playerShoot()
+if(!boss.entered){
 
-player.cool--
+boss.y+=1.5
 
-player.x=Math.max(10,Math.min(canvas.width-10,player.x))
-player.y=Math.max(360,Math.min(canvas.height-10,player.y))
+if(boss.y>120){
+boss.entered=true
+}
 
-bullets.forEach(b=>b.y+=b.vy)
+}
+
+if(boss.entered && boss.timer%60===0){
+
+spawnPattern()
+
+if(boss.hp<130)boss.phase=1
+if(boss.hp<60)boss.phase=2
+
+}
+
+if(keys["ArrowLeft"]||keys["a"])player.x-=player.speed
+if(keys["ArrowRight"]||keys["d"])player.x+=player.speed
+if(keys["ArrowUp"]||keys["w"])player.y-=player.speed
+if(keys["ArrowDown"]||keys["s"])player.y+=player.speed
+
+stars.forEach(s=>{
+s.y+=s.speed
+if(s.y>640){
+s.y=0
+s.x=Math.random()*480
+}
+})
+
+bullets.forEach(b=>b.y-=b.speed)
 
 enemyBullets.forEach(b=>{
 b.x+=b.vx
 b.y+=b.vy
 })
 
-enemies.forEach(e=>{
+bullets.forEach((b,i)=>{
 
-e.x+=e.vx
-e.y+=e.vy
-
-if(e.x<20||e.x>580)e.vx*=-1
-if(e.y<20||e.y>320)e.vy*=-1
-
-if(frame%(100-phase*4)==0){
-
-if(e.type=="small"){
-shootFlower(e.x,e.y,6+phase,2)
-}
-
-if(e.type=="mid"){
-shootFlower(e.x,e.y,16,2)
-shootSpiral(e.x,e.y,frame*0.05)
-}
-
-}
-
-})
-
-if(boss){
-
-boss.x+=boss.vx
-boss.y+=boss.vy
-
-if(boss.x<60||boss.x>540)boss.vx*=-1
-if(boss.y<40||boss.y>260)boss.vy*=-1
-
-if(boss.phase==1){
-
-if(frame%50==0){
-shootFlower(boss.x,boss.y,30,2)
-}
-
-if(frame%120==0){
-
-enemyBullets.push({
-x:boss.x,
-y:boss.y,
-vx:0,
-vy:3,
-split:true
-})
-
-}
-
-if(boss.hp<400){
-boss.phase=2
-}
-
-}else{
-
-if(frame%40==0){
-shootFlower(boss.x,boss.y,40,3)
-}
-
-if(frame%200==0){
-
-enemies.push({
-
-x:boss.x,
-y:boss.y,
-vx:2,
-vy:1,
-hp:5,
-type:"small"
-
-})
-
-}
-
-}
-
-}
-
-bullets.forEach((b,bi)=>{
-
-enemies.forEach((e,ei)=>{
-
-if(Math.hypot(b.x-e.x,b.y-e.y)<14){
-
-e.hp--
-bullets.splice(bi,1)
-
-if(e.hp<=0){
-
-explode(e.x,e.y)
-
-if(Math.random()<0.2){
-
-items.push({
-x:e.x,
-y:e.y,
-type:Math.random()<0.5?"heal":"power"
-})
-
-}
-
-enemies.splice(ei,1)
-
-}
-
-}
-
-})
-
-if(boss){
-
-if(Math.hypot(b.x-boss.x,b.y-boss.y)<40){
-
+if(Math.hypot(b.x-boss.x,b.y-boss.y)<25){
 boss.hp--
-bullets.splice(bi,1)
+bullets.splice(i,1)
+}
+
+})
+
+enemyBullets.forEach(b=>{
+if(Math.hypot(b.x-player.x,b.y-player.y)<10){
+gameOver()
+}
+})
+
+document.getElementById("bossHP").style.width=
+(boss.hp/boss.maxHP*100)+"%"
 
 if(boss.hp<=0){
-
-alert("GAME CLEAR")
-location.reload()
-
-}
-
-}
-
-}
-
-})
-
-enemyBullets.forEach((b,i)=>{
-
-if(b.split && b.y>350){
-
-b.split=false
-shootFlower(b.x,b.y,10,2)
-
-}
-
-if(Math.hypot(b.x-player.x,b.y-player.y)<8){
-
-player.hp-=10
-enemyBullets.splice(i,1)
-
-if(player.hp<=0){
-
-alert("GAME OVER")
-location.reload()
-
-}
-
-}
-
-})
-
-items.forEach((it,i)=>{
-
-it.y+=2
-
-if(Math.hypot(it.x-player.x,it.y-player.y)<15){
-
-if(it.type=="heal"){
-
-player.hp=Math.min(player.maxHp,player.hp+30)
-
-}else{
-
-player.power=Math.min(5,player.power+1)
-
-}
-
-items.splice(i,1)
-
-}
-
-})
-
-effects.forEach((e,i)=>{
-
-e.x+=e.vx
-e.y+=e.vy
-e.life--
-
-if(e.life<=0)effects.splice(i,1)
-
-})
-
-if(enemies.length==0 && !boss){
-
-nextPhase()
-
+gameOver()
 }
 
 }
 
 function draw(){
 
-ctx.fillStyle="black"
-ctx.fillRect(0,0,canvas.width,canvas.height)
+ctx.clearRect(0,0,480,640)
 
-ctx.strokeStyle="#333"
-ctx.beginPath()
-ctx.moveTo(0,350)
-ctx.lineTo(600,350)
-ctx.stroke()
+ctx.fillStyle="white"
+stars.forEach(s=>{
+ctx.fillRect(s.x,s.y,2,2)
+})
 
 ctx.fillStyle="cyan"
-ctx.fillRect(player.x-6,player.y-6,12,12)
+ctx.fillRect(player.x-5,player.y-5,10,10)
 
 ctx.fillStyle="yellow"
 bullets.forEach(b=>{
@@ -423,49 +302,24 @@ ctx.fillRect(b.x-2,b.y-8,4,8)
 ctx.fillStyle="red"
 enemyBullets.forEach(b=>{
 ctx.beginPath()
-ctx.arc(b.x,b.y,3,0,Math.PI*2)
+ctx.arc(b.x,b.y,4,0,Math.PI*2)
 ctx.fill()
 })
-
-ctx.fillStyle="orange"
-enemies.forEach(e=>{
-ctx.beginPath()
-ctx.arc(e.x,e.y,12,0,Math.PI*2)
-ctx.fill()
-})
-
-if(boss){
 
 ctx.fillStyle="purple"
 ctx.beginPath()
-ctx.arc(boss.x,boss.y,45,0,Math.PI*2)
+ctx.arc(boss.x,boss.y,25,0,Math.PI*2)
 ctx.fill()
 
 }
 
-ctx.fillStyle="lime"
-items.forEach(i=>{
-ctx.fillRect(i.x-6,i.y-6,12,12)
-})
+function gameOver(){
 
-ctx.fillStyle="white"
-effects.forEach(e=>{
-ctx.fillRect(e.x,e.y,2,2)
-})
+gameRunning=false
 
-ctx.fillStyle="white"
-ctx.font="18px Arial"
-
-ctx.fillText("PHASE "+phase+" / 10",10,20)
-ctx.fillText("ENEMIES "+enemies.length,10,40)
-
-ctx.fillText("HP",470,20)
-
-ctx.fillStyle="red"
-ctx.fillRect(500,10,80,10)
-
-ctx.fillStyle="lime"
-ctx.fillRect(500,10,80*(player.hp/player.maxHp),10)
+document
+.getElementById("gameOverScreen")
+.classList.remove("hidden")
 
 }
 
@@ -473,12 +327,10 @@ function loop(){
 
 update()
 draw()
+
 requestAnimationFrame(loop)
 
 }
-
-spawnWave()
-loop()
 
 </script>
 

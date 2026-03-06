@@ -1,118 +1,73 @@
-```html
 <!DOCTYPE html>
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<title>GALAXY INVADER</title>
+<title>Galaxy Defender</title>
 
 <style>
-
 body{
-margin:0;
-background:black;
+background:#05070f;
 color:white;
-font-family:sans-serif;
 text-align:center;
-overflow:hidden;
+font-family:monospace;
 }
 
 canvas{
-background:black;
-border:2px solid cyan;
-display:block;
-margin:auto;
-}
-
-#titleScreen{
-position:absolute;
-width:100%;
-height:100%;
-display:flex;
-flex-direction:column;
-justify-content:center;
-align-items:center;
-background:black;
-}
-
-#title{
-font-size:60px;
-color:cyan;
-animation:glow 2s infinite alternate;
-}
-
-@keyframes glow{
-from{ text-shadow:0 0 10px cyan;}
-to{ text-shadow:0 0 30px cyan;}
-}
-
-button{
-padding:15px 40px;
-font-size:20px;
-background:black;
-color:cyan;
-border:2px solid cyan;
-cursor:pointer;
+background:#000;
+border:3px solid #0ff;
+box-shadow:0 0 20px #0ff;
 }
 
 #ui{
-width:900px;
+width:800px;
 margin:auto;
 }
 
 .bar{
 height:16px;
-background:#333;
-margin:5px;
+background:#222;
+margin:4px;
 }
 
 .fill{
 height:100%;
-background:lime;
+background:#0f0;
 }
-
-.shieldFill{background:cyan;}
-.phaseFill{background:orange;}
-.bossFill{background:red;}
-
 </style>
 </head>
 
 <body>
 
-<div id="titleScreen">
-<div id="title">GALAXY INVADER</div>
-<button onclick="startGame()">START</button>
-</div>
+<h1>🚀 Galaxy Defender</h1>
+<p>← → 移動　スペース 攻撃</p>
 
 <div id="ui">
-
 HP
 <div class="bar"><div id="hp" class="fill"></div></div>
 
-SHIELD
-<div class="bar"><div id="shield" class="fill shieldFill"></div></div>
-
-PHASE
-<div class="bar"><div id="phase" class="fill phaseFill"></div></div>
-
-BOSS
-<div class="bar"><div id="boss" class="fill bossFill"></div></div>
-
+Phase Progress
+<div class="bar"><div id="phase" class="fill"></div></div>
 </div>
 
-<canvas id="game" width="900" height="600"></canvas>
+<canvas id="game" width="800" height="600"></canvas>
 
 <script>
 
 const canvas=document.getElementById("game")
 const ctx=canvas.getContext("2d")
 
-let game=false
+let keys={}
+document.addEventListener("keydown",e=>keys[e.key]=true)
+document.addEventListener("keyup",e=>keys[e.key]=false)
 
-let player={x:450,y:550,hp:100}
-
-let shield=0
-let shieldMax=50
+let player={
+x:380,
+y:540,
+w:40,
+h:40,
+hp:100,
+cool:0
+}
 
 let bullets=[]
 let enemyBullets=[]
@@ -120,262 +75,167 @@ let enemies=[]
 let explosions=[]
 let items=[]
 
-let boss=null
-
 let phase=1
-let phaseProgress=0
+let kills=0
+let phaseTarget=15
 
-let keys={}
+function spawnEnemy(){
 
-let shootCooldown=0
+let type=1
+if(phase>=2) type=Math.random()<0.5?1:2
+if(phase>=3) type=Math.random()<0.33?3:type
 
-let stars=[]
-
-for(let i=0;i<80;i++){
-stars.push({
-x:Math.random()*900,
-y:Math.random()*600,
-speed:1+Math.random()*2
-})
+let e={
+x:Math.random()*760,
+y:40,
+type:type,
+vx:(Math.random()-0.5)*2,
+hp:1,
+cool:Math.random()*120
 }
 
-document.addEventListener("keydown",e=>{
-keys[e.key]=true
+enemies.push(e)
+}
 
-if(e.code==="Space")shoot()
-
-})
-
-document.addEventListener("keyup",e=>keys[e.key]=false)
+for(let i=0;i<6;i++) spawnEnemy()
 
 function shoot(){
 
-if(shootCooldown>0)return
+if(player.cool>0)return
 
-bullets.push({x:player.x,y:player.y})
-
-shootCooldown=12
-
-}
-
-function startGame(){
-document.getElementById("titleScreen").style.display="none"
-game=true
-startPhase()
-loop()
-}
-
-function startPhase(){
-
-shield=shieldMax
-
-let count=5+phase*2
-
-for(let i=0;i<count;i++){
-
-let type=1
-
-if(phase>=2 && Math.random()<0.3)type=2
-if(phase>=3 && Math.random()<0.2)type=3
-if(phase>=4 && Math.random()<0.2)type=4
-
-enemies.push({
-x:80+i*120,
-y:80+Math.random()*100,
-hp:10+type*5,
-dir:Math.random()<0.5?-1:1,
-type:type,
-zig:0
+bullets.push({
+x:player.x+18,
+y:player.y,
+vy:-8
 })
 
-}
-
-if(phase==5)spawnBoss()
-
-}
-
-function spawnBoss(){
-
-boss={
-x:450,
-y:120,
-hp:300,
-cool:0,
-mode:1
-}
-
-}
-
-function enemyShoot(e){
-
-enemyBullets.push({
-x:e.x,
-y:e.y,
-vx:(Math.random()-0.5)*2,
-vy:3+phase
-})
-
+player.cool=10
 }
 
 function update(){
 
-if(!game)return
+if(keys["ArrowLeft"]) player.x-=5
+if(keys["ArrowRight"]) player.x+=5
 
-if(keys["ArrowLeft"])player.x-=7
-if(keys["ArrowRight"])player.x+=7
+player.x=Math.max(0,Math.min(760,player.x))
 
-player.x=Math.max(20,Math.min(880,player.x))
+if(keys[" "]) shoot()
 
-if(shootCooldown>0)shootCooldown--
+player.cool--
 
-for(let i=bullets.length-1;i>=0;i--){
-bullets[i].y-=10
-if(bullets[i].y<0)bullets.splice(i,1)
-}
+bullets.forEach(b=>b.y+=b.vy)
 
-for(let i=enemyBullets.length-1;i>=0;i--){
+bullets=bullets.filter(b=>b.y>-20)
 
-enemyBullets[i].x+=enemyBullets[i].vx
-enemyBullets[i].y+=enemyBullets[i].vy
-
-if(enemyBullets[i].y>600)
-enemyBullets.splice(i,1)
-
-}
+enemyBullets.forEach(b=>b.y+=b.vy)
 
 enemies.forEach(e=>{
 
-let speed=1+phase*0.2
+e.x+=e.vx
 
-if(e.type==2)speed=3
-if(e.type==3){
-e.zig+=0.1
-e.x+=Math.sin(e.zig)*4
-}
+if(e.x<0||e.x>760) e.vx*=-1
 
-e.x+=e.dir*speed
+e.cool--
 
-if(e.x<20||e.x>880)e.dir*=-1
-
-if(Math.random()<0.006+phase*0.002)
-enemyShoot(e)
-
-})
-
-if(boss){
-
-if(boss.hp<150)boss.mode=2
-
-boss.cool--
-
-if(boss.cool<=0){
-
-if(boss.mode==1){
-
-enemyBullets.push({x:boss.x,y:boss.y,vx:-2,vy:4})
-enemyBullets.push({x:boss.x,y:boss.y,vx:0,vy:4})
-enemyBullets.push({x:boss.x,y:boss.y,vx:2,vy:4})
-
-}else{
-
-for(let i=0;i<8;i++){
+if(e.cool<=0){
 
 enemyBullets.push({
-x:boss.x,
-y:boss.y,
-vx:Math.cos(i)*3,
-vy:Math.sin(i)*3+3
+x:e.x+15,
+y:e.y+20,
+vy:4+phase
+})
+
+e.cool=120-Math.min(80,phase*10)
+}
+
+})
+
+bullets.forEach((b,bi)=>{
+
+enemies.forEach((e,ei)=>{
+
+if(
+b.x<e.x+30 &&
+b.x+4>e.x &&
+b.y<e.y+20 &&
+b.y+10>e.y
+){
+
+enemies.splice(ei,1)
+bullets.splice(bi,1)
+
+explosions.push({
+x:e.x,
+y:e.y,
+t:0
+})
+
+kills++
+
+if(Math.random()<0.2){
+
+items.push({
+x:e.x,
+y:e.y,
+vy:2
 })
 
 }
 
-}
-
-boss.cool=50
+spawnEnemy()
 
 }
 
-}
+})
 
-checkCollisions()
+})
 
-updateUI()
+enemyBullets.forEach((b,bi)=>{
 
-}
-
-function checkCollisions(){
-
-for(let bi=bullets.length-1;bi>=0;bi--){
-
-let b=bullets[bi]
-
-for(let ei=enemies.length-1;ei>=0;ei--){
-
-let e=enemies[ei]
-
-if(Math.abs(b.x-e.x)<20 && Math.abs(b.y-e.y)<20){
-
-bullets.splice(bi,1)
-
-e.hp-=10
-
-if(e.hp<=0){
-
-spawnExplosion(e.x,e.y)
-
-if(Math.random()<0.35)
-items.push({x:e.x,y:e.y})
-
-enemies.splice(ei,1)
-
-phaseProgress+=5
-
-}
-
-break
-
-}
-
-}
-
-if(boss){
-
-if(Math.abs(b.x-boss.x)<70 && Math.abs(b.y-boss.y)<70){
-
-bullets.splice(bi,1)
-
-boss.hp-=10
-
-spawnExplosion(b.x,b.y)
-
-if(boss.hp<=0){
-
-alert("GAME CLEAR")
-location.reload()
-
-}
-
-}
-
-}
-
-}
-
-for(let bi=enemyBullets.length-1;bi>=0;bi--){
-
-let b=enemyBullets[bi]
-
-if(Math.abs(b.x-player.x)<20 && Math.abs(b.y-player.y)<20){
+if(
+b.x<player.x+player.w &&
+b.x+4>player.x &&
+b.y<player.y+player.h &&
+b.y+10>player.y
+){
 
 enemyBullets.splice(bi,1)
-
-if(shield>0){
-shield-=5
-}else{
 player.hp-=5
+
 }
 
-spawnExplosion(player.x,player.y)
+})
+
+items.forEach((i,ii)=>{
+
+i.y+=i.vy
+
+if(
+i.x<player.x+player.w &&
+i.x+20>player.x &&
+i.y<player.y+player.h &&
+i.y+20>player.y
+){
+
+items.splice(ii,1)
+player.hp=Math.min(100,player.hp+20)
+
+}
+
+})
+
+explosions.forEach(e=>e.t++)
+explosions=explosions.filter(e=>e.t<20)
+
+if(kills>=phaseTarget){
+
+phase++
+kills=0
+phaseTarget+=10
+
+for(let i=0;i<4+phase;i++) spawnEnemy()
+
+}
 
 if(player.hp<=0){
 
@@ -386,160 +246,69 @@ location.reload()
 
 }
 
-}
+function drawPlayer(){
 
-items.forEach((it,i)=>{
+ctx.fillStyle="#0ff"
 
-it.y+=2
-
-if(Math.abs(it.x-player.x)<20 && Math.abs(it.y-player.y)<20){
-
-player.hp=Math.min(100,player.hp+20)
-
-items.splice(i,1)
+ctx.fillRect(player.x+10,player.y,20,20)
+ctx.fillRect(player.x,player.y+20,40,10)
+ctx.fillRect(player.x+15,player.y+30,10,10)
 
 }
 
-})
+function drawEnemy(e){
 
-if(enemies.length==0 && !boss){
+if(e.type==1) ctx.fillStyle="#f33"
+if(e.type==2) ctx.fillStyle="#ff0"
+if(e.type==3) ctx.fillStyle="#f0f"
 
-phase++
-phaseProgress=0
-startPhase()
+ctx.fillRect(e.x,e.y,30,20)
+ctx.fillRect(e.x+10,e.y+20,10,5)
 
 }
 
-}
+function drawExplosion(e){
 
-function spawnExplosion(x,y){
-explosions.push({x,y,frame:0})
-}
+let r=e.t*2
 
-function updateUI(){
-
-document.getElementById("hp").style.width=player.hp+"%"
-document.getElementById("shield").style.width=(shield/shieldMax*100)+"%"
-document.getElementById("phase").style.width=Math.min(100,phaseProgress)+"%"
-
-if(boss)
-document.getElementById("boss").style.width=(boss.hp/300*100)+"%"
+ctx.fillStyle="orange"
+ctx.beginPath()
+ctx.arc(e.x+15,e.y+10,r,0,Math.PI*2)
+ctx.fill()
 
 }
 
 function draw(){
 
-ctx.clearRect(0,0,900,600)
+ctx.clearRect(0,0,800,600)
 
-drawStars()
 drawPlayer()
-drawEnemies()
-drawBoss()
-drawBullets()
-drawExplosions()
-drawItems()
 
-}
+ctx.fillStyle="#0ff"
 
-function drawStars(){
+bullets.forEach(b=>{
+ctx.fillRect(b.x,b.y,4,10)
+})
 
-ctx.fillStyle="white"
+ctx.fillStyle="#f00"
 
-stars.forEach(s=>{
+enemyBullets.forEach(b=>{
+ctx.fillRect(b.x,b.y,4,10)
+})
 
-s.y+=s.speed
+enemies.forEach(drawEnemy)
 
-if(s.y>600){
-s.y=0
-s.x=Math.random()*900
-}
+items.forEach(i=>{
 
-ctx.fillRect(s.x,s.y,2,2)
+ctx.fillStyle="#0f0"
+ctx.fillRect(i.x,i.y,20,20)
 
 })
 
-}
+explosions.forEach(drawExplosion)
 
-function drawPlayer(){
-
-ctx.fillStyle="cyan"
-
-ctx.fillRect(player.x-15,player.y-10,30,20)
-ctx.fillRect(player.x-5,player.y-20,10,10)
-
-}
-
-function drawEnemies(){
-
-enemies.forEach(e=>{
-
-if(e.type==1)ctx.fillStyle="lime"
-if(e.type==2)ctx.fillStyle="yellow"
-if(e.type==3)ctx.fillStyle="orange"
-if(e.type==4)ctx.fillStyle="purple"
-
-ctx.fillRect(e.x-15,e.y-10,30,20)
-ctx.fillRect(e.x-20,e.y,40,5)
-
-})
-
-}
-
-function drawBoss(){
-
-if(!boss)return
-
-ctx.fillStyle="red"
-
-ctx.fillRect(boss.x-70,boss.y-40,140,80)
-ctx.fillRect(boss.x-40,boss.y-80,80,40)
-
-}
-
-function drawBullets(){
-
-ctx.fillStyle="cyan"
-
-bullets.forEach(b=>ctx.fillRect(b.x-2,b.y-10,4,10))
-
-ctx.fillStyle="orange"
-
-enemyBullets.forEach(b=>ctx.fillRect(b.x-3,b.y-6,6,12))
-
-}
-
-function drawExplosions(){
-
-for(let i=explosions.length-1;i>=0;i--){
-
-let ex=explosions[i]
-
-ctx.fillStyle="orange"
-
-ctx.beginPath()
-ctx.arc(ex.x,ex.y,ex.frame*4,0,Math.PI*2)
-ctx.fill()
-
-ex.frame++
-
-if(ex.frame>12)
-explosions.splice(i,1)
-
-}
-
-}
-
-function drawItems(){
-
-ctx.fillStyle="pink"
-
-items.forEach(it=>{
-
-ctx.beginPath()
-ctx.arc(it.x,it.y,8,0,Math.PI*2)
-ctx.fill()
-
-})
+document.getElementById("hp").style.width=player.hp+"%"
+document.getElementById("phase").style.width=(kills/phaseTarget*100)+"%"
 
 }
 
@@ -552,8 +321,8 @@ requestAnimationFrame(loop)
 
 }
 
-</script>
+loop()
 
+</script>
 </body>
 </html>
-```

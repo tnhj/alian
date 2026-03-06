@@ -2,228 +2,383 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<title>理不尽弾幕シューティング</title>
+<title>Pixel Bullet Hell Invader</title>
 <style>
-body{margin:0;background:black;color:white;font-family:sans-serif;text-align:center}
-canvas{background:black;display:block;margin:auto}
+body{
+margin:0;
+background:black;
+color:white;
+font-family:monospace;
+overflow:hidden;
+}
+
+canvas{
+display:block;
+margin:auto;
+background:#050505;
+image-rendering: pixelated;
+}
+
+#ui{
+position:absolute;
+top:10px;
+left:50%;
+transform:translateX(-50%);
+width:600px;
+}
+
+.bar{
+height:10px;
+background:#333;
+margin:5px 0;
+}
+
+.fill{
+height:100%;
+background:#0f0;
+width:100%;
+}
+
+#phaseFill{ background:#0af }
+#bossFill{ background:#f00 }
+
 </style>
 </head>
 <body>
+
+<div id="ui">
+<div>HP</div>
+<div class="bar"><div id="hpFill" class="fill"></div></div>
+
+<div>PHASE</div>
+<div class="bar"><div id="phaseFill" class="fill"></div></div>
+
+<div>BOSS</div>
+<div class="bar"><div id="bossFill" class="fill"></div></div>
+</div>
+
 <canvas id="game" width="600" height="800"></canvas>
+
 <script>
-const canvas=document.getElementById("game");
-const ctx=canvas.getContext("2d");
 
-const W=canvas.width;
-const H=canvas.height;
+const canvas = document.getElementById("game")
+const ctx = canvas.getContext("2d")
 
-let keys={};
-addEventListener("keydown",e=>keys[e.key]=true);
-addEventListener("keyup",e=>keys[e.key]=false);
+let keys={}
+addEventListener("keydown",e=>keys[e.key]=true)
+addEventListener("keyup",e=>keys[e.key]=false)
 
-let player={x:W/2,y:H-80,size:6,speed:5};
-let shots=[];
-let enemies=[];
-let bullets=[];
+const player={
+x:300,
+y:720,
+hp:100,
+cool:0
+}
 
-let phase=1;
-let boss=null;
-let timer=0;
+let bullets=[]
+let enemyBullets=[]
+let enemies=[]
+let explosions=[]
+
+let phase=1
+let phaseProgress=0
+let boss=null
+let gameOver=false
+let gameClear=false
 
 function spawnEnemy(){
-let type=Math.floor(Math.random()*3);
-enemies.push({x:Math.random()*W,y:-20,type:type,t:0});
+
+let type=Math.floor(Math.random()*3)
+
+enemies.push({
+x:Math.random()*560+20,
+y:-20,
+hp:10+phase*2,
+type:type,
+t:0
+})
+
 }
 
 function spawnBoss(){
-boss={x:W/2,y:120,hp:500,phase:1,t:0};
-}
 
-function shoot(){
-shots.push({x:player.x,y:player.y-10});
-}
-
-addEventListener("keydown",e=>{
-if(e.key==="z")shoot();
-});
-
-function updatePlayer(){
-if(keys["ArrowLeft"])player.x-=player.speed;
-if(keys["ArrowRight"])player.x+=player.speed;
-if(keys["ArrowUp"])player.y-=player.speed;
-if(keys["ArrowDown"])player.y+=player.speed;
-
-player.x=Math.max(0,Math.min(W,player.x));
-player.y=Math.max(0,Math.min(H,player.y));
-}
-
-function updateShots(){
-for(let s of shots)s.y-=10;
-shots=shots.filter(s=>s.y>-20);
-}
-
-function updateEnemies(){
-for(let e of enemies){
- e.t++;
- e.y+=2;
-
- if(e.type==0 && e.t%60==0){
- bullets.push({x:e.x,y:e.y,vx:0,vy:4});
- }
-
- if(e.type==1 && e.t%60==0){
- for(let i=0;i<6;i++){
- let a=i*Math.PI/3;
- bullets.push({x:e.x,y:e.y,vx:Math.cos(a)*3,vy:Math.sin(a)*3});
- }
- }
-
- if(e.type==2 && e.t%60==0){
- let a=e.t*0.2;
- bullets.push({x:e.x,y:e.y,vx:Math.cos(a)*4,vy:Math.sin(a)*4});
- }
- }
-
- enemies=enemies.filter(e=>e.y<H+40);
-}
-
-function updateBoss(){
-if(!boss)return;
-
-boss.t++;
-
-boss.x+=Math.sin(boss.t*0.03)*4;
-
-if(boss.hp<250)boss.phase=2;
-
-if(boss.phase==1 && boss.t%40==0){
- for(let i=0;i<20;i++){
- let a=i*Math.PI*2/20;
- bullets.push({x:boss.x,y:boss.y,vx:Math.cos(a)*3,vy:Math.sin(a)*3});
- }
-}
-
-if(boss.phase==2){
-
- if(boss.t%30==0){
- for(let i=0;i<36;i++){
- let a=i*Math.PI*2/36;
- bullets.push({x:boss.x,y:boss.y,vx:Math.cos(a)*4,vy:Math.sin(a)*4});
- }
- }
-
- if(boss.t%120==0){
- enemies.push({x:Math.random()*W,y:-20,type:1,t:0});
- enemies.push({x:Math.random()*W,y:-20,type:2,t:0});
- }
-
- if(boss.t%90==0){
- bullets.push({x:boss.x,y:boss.y,vx:0,vy:5,split:true,t:0});
- }
-}
-}
-
-function updateBullets(){
-for(let b of bullets){
- b.x+=b.vx;
- b.y+=b.vy;
-
- if(b.split){
- b.t++;
- if(b.t==40){
- for(let i=0;i<8;i++){
- let a=i*Math.PI*2/8;
- bullets.push({x:b.x,y:b.y,vx:Math.cos(a)*4,vy:Math.sin(a)*4});
- }
- }
- }
-
- if(b.x<0||b.x>W)b.vx*=-1;
- if(b.y<0||b.y>H)b.vy*=-1;
-}
-
-bullets=bullets.filter(b=>b.y>-50&&b.y<H+50);
-}
-
-function collision(){
-
-for(let s of shots){
- for(let e of enemies){
- if(Math.hypot(s.x-e.x,s.y-e.y)<10){
- e.y=9999;
- }
- }
-
- if(boss && Math.hypot(s.x-boss.x,s.y-boss.y)<30){
- boss.hp--;
- }
+boss={
+x:300,
+y:120,
+hp:800,
+maxHp:800,
+phase:1,
+t:0
 }
 
 }
 
-function drawPlayer(){
-ctx.fillStyle="cyan";
-ctx.fillRect(player.x-4,player.y-4,8,8);
+function shoot(x,y,vx,vy,enemy=false){
+
+let b={
+x,y,vx,vy
 }
 
-function drawShots(){
-ctx.fillStyle="white";
-for(let s of shots)ctx.fillRect(s.x-2,s.y-6,4,6);
+if(enemy) enemyBullets.push(b)
+else bullets.push(b)
+
 }
 
-function drawEnemies(){
-ctx.fillStyle="red";
-for(let e of enemies)ctx.fillRect(e.x-6,e.y-6,12,12);
+function explode(x,y){
+
+for(let i=0;i<15;i++){
+explosions.push({
+x,y,
+vx:(Math.random()-0.5)*6,
+vy:(Math.random()-0.5)*6,
+life:30
+})
 }
 
-function drawBoss(){
-if(!boss)return;
-ctx.fillStyle="purple";
-ctx.fillRect(boss.x-40,boss.y-20,80,40);
-
-ctx.fillStyle="white";
-ctx.fillText("BOSS HP:"+boss.hp,10,20);
-}
-
-function drawBullets(){
-ctx.fillStyle="yellow";
-for(let b of bullets)ctx.fillRect(b.x-3,b.y-3,6,6);
-}
-
-function draw(){
-ctx.clearRect(0,0,W,H);
-
-ctx.fillText("PHASE "+phase,10,40);
-
- drawPlayer();
- drawShots();
- drawEnemies();
- drawBullets();
- drawBoss();
 }
 
 function update(){
 
- timer++;
+if(gameOver||gameClear)return
 
- updatePlayer();
- updateShots();
- updateEnemies();
- updateBullets();
+if(keys["ArrowLeft"]) player.x-=6
+if(keys["ArrowRight"]) player.x+=6
 
- if(phase<10 && timer%180==0)spawnEnemy();
+player.x=Math.max(10,Math.min(590,player.x))
 
- if(timer>2000 && !boss)spawnBoss();
+if(player.cool<=0){
+shoot(player.x,player.y,-0, -10)
+player.cool=6
+}
+player.cool--
 
- updateBoss();
- collision();
+phaseProgress+=0.3
 
- draw();
-
- requestAnimationFrame(update);
+if(phaseProgress>100 && !boss){
+phase++
+phaseProgress=0
+if(phase<10) spawnEnemy()
 }
 
-update();
+if(Math.random()<0.03+phase*0.005 && phase<10)
+spawnEnemy()
+
+if(phase==10 && !boss){
+spawnBoss()
+}
+
+for(let e of enemies){
+
+e.t+=0.05
+
+if(e.type==0){
+e.y+=2+phase*0.3
+}
+
+if(e.type==1){
+e.y+=2
+e.x+=Math.sin(e.t)*3
+}
+
+if(e.type==2){
+e.y+=1.5
+e.x+=Math.cos(e.t*2)*4
+}
+
+if(Math.random()<0.02){
+let dx=player.x-e.x
+let dy=player.y-e.y
+let d=Math.hypot(dx,dy)
+shoot(e.x,e.y,dx/d*3,dy/d*3,true)
+}
+
+}
+
+if(boss){
+
+boss.t+=0.03
+
+boss.x=300+Math.sin(boss.t)*200
+
+if(Math.random()<0.15){
+
+for(let i=0;i<12;i++){
+
+let a=i*Math.PI*2/12
+shoot(boss.x,boss.y,Math.cos(a)*3,Math.sin(a)*3,true)
+
+}
+
+}
+
+if(boss.phase==2){
+
+for(let i=0;i<20;i++){
+
+let a=i*Math.PI*2/20+boss.t
+shoot(boss.x,boss.y,Math.cos(a)*4,Math.sin(a)*4,true)
+
+}
+
+}
+
+if(boss.hp<boss.maxHp/2 && boss.phase==1){
+boss.phase=2
+explode(boss.x,boss.y)
+}
+
+}
+
+for(let b of bullets){
+b.y+=b.vy
+}
+
+for(let b of enemyBullets){
+b.x+=b.vx
+b.y+=b.vy
+}
+
+for(let b of bullets){
+
+for(let e of enemies){
+
+if(Math.hypot(b.x-e.x,b.y-e.y)<15){
+e.hp-=10
+b.y=-100
+}
+
+}
+
+if(boss && Math.hypot(b.x-boss.x,b.y-boss.y)<40){
+boss.hp-=5
+b.y=-100
+}
+
+}
+
+for(let b of enemyBullets){
+
+if(Math.hypot(b.x-player.x,b.y-player.y)<15){
+player.hp-=5
+b.y=900
+explode(player.x,player.y)
+}
+
+}
+
+enemies=enemies.filter(e=>{
+if(e.hp<=0){
+explode(e.x,e.y)
+return false
+}
+return e.y<820
+})
+
+bullets=bullets.filter(b=>b.y>-50)
+enemyBullets=enemyBullets.filter(b=>b.y<850)
+
+for(let ex of explosions){
+ex.x+=ex.vx
+ex.y+=ex.vy
+ex.life--
+}
+
+explosions=explosions.filter(e=>e.life>0)
+
+if(player.hp<=0){
+gameOver=true
+}
+
+if(boss && boss.hp<=0){
+gameClear=true
+explode(boss.x,boss.y)
+}
+
+updateUI()
+
+}
+
+function updateUI(){
+
+document.getElementById("hpFill").style.width=player.hp+"%"
+
+document.getElementById("phaseFill").style.width=phaseProgress+"%"
+
+if(boss){
+document.getElementById("bossFill").style.width=
+(boss.hp/boss.maxHp*100)+"%"
+}else{
+document.getElementById("bossFill").style.width="0%"
+}
+
+}
+
+function drawPixel(x,y,size=4){
+
+ctx.fillRect(
+Math.floor(x/size)*size,
+Math.floor(y/size)*size,
+size,size
+)
+
+}
+
+function draw(){
+
+ctx.fillStyle="black"
+ctx.fillRect(0,0,600,800)
+
+ctx.fillStyle="#0ff"
+drawPixel(player.x,player.y,6)
+
+ctx.fillStyle="#ff0"
+for(let b of bullets) drawPixel(b.x,b.y,4)
+
+ctx.fillStyle="#f44"
+for(let b of enemyBullets) drawPixel(b.x,b.y,4)
+
+ctx.fillStyle="#0f0"
+for(let e of enemies) drawPixel(e.x,e.y,8)
+
+if(boss){
+ctx.fillStyle="#f0f"
+drawPixel(boss.x,boss.y,20)
+}
+
+ctx.fillStyle="#fa0"
+for(let ex of explosions){
+drawPixel(ex.x,ex.y,4)
+}
+
+if(gameOver){
+
+ctx.fillStyle="white"
+ctx.font="40px monospace"
+ctx.fillText("GAME OVER",180,400)
+
+}
+
+if(gameClear){
+
+ctx.fillStyle="white"
+ctx.font="40px monospace"
+ctx.fillText("GAME CLEAR!",160,400)
+
+}
+
+}
+
+function loop(){
+
+update()
+draw()
+requestAnimationFrame(loop)
+
+}
+
+loop()
+
 </script>
+
 </body>
 </html>

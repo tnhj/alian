@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<title>東方級ブラウザ弾幕STG 完全版</title>
+<title>鬼畜弾幕STG 完全版</title>
 <style>
 body{margin:0;overflow:hidden;background:black;font-family:sans-serif;color:white;}
 canvas{display:block;margin:auto;background:black;}
@@ -17,7 +17,7 @@ button{padding:10px 20px;font-size:20px;margin-top:20px;}
 <body>
 
 <div id="startScreen" class="screen">
-<h1>東方級ブラウザ弾幕STG</h1>
+<h1>鬼畜弾幕STG</h1>
 <button onclick="startGame()">START</button>
 </div>
 
@@ -36,6 +36,7 @@ button{padding:10px 20px;font-size:20px;margin-top:20px;}
 <div id="playerHPbar"></div>
 <div>BOSS HP</div>
 <div id="bossHPbar"></div>
+<div>Score: <span id="score">0</span> Phase: <span id="phase">1</span></div>
 </div>
 
 <div id="pauseText" class="hidden">PAUSE</div>
@@ -43,41 +44,28 @@ button{padding:10px 20px;font-size:20px;margin-top:20px;}
 <canvas id="game" width="480" height="640"></canvas>
 
 <script>
-// -------------------- GAME STATE --------------------
+// -------------------- STATE --------------------
 const canvas=document.getElementById("game");
 const ctx=canvas.getContext("2d");
-
 let gameRunning=false,paused=false,frame=0,phase=1,score=0;
+let player={x:240,y:550,speed:4,hp:100,maxHP:100,bomb:3,invincible:0,shootCool:0};
+let bullets=[],enemyBullets=[],enemies=[],boss=null,stars=[];
 
-// PLAYER
-let player={
-x:240,y:550,speed:4,hp:100,maxHP:100,bomb:3,invincible:0,shootCool:0
-};
-
-// ENEMIES & BULLETS
-let bullets=[],enemyBullets=[],enemies=[],boss=null,effects=[],stars=[];
-
-// INPUT
 let keys={};
 document.addEventListener("keydown",e=>keys[e.key]=true);
 document.addEventListener("keyup",e=>keys[e.key]=false);
 document.addEventListener("keydown",e=>{if(e.key==="p") togglePause();});
 
-// -------------------- UTIL --------------------
+// -------------------- UTILS --------------------
 function rand(min,max){return Math.random()*(max-min)+min;}
 function dist(a,b){return Math.hypot(a.x-b.x,a.y-b.y);}
 
 // -------------------- START/RESTART --------------------
 function startGame(){
 document.getElementById("startScreen").classList.add("hidden");
-player.hp=player.maxHP;
-player.x=240;player.y=550;player.invincible=0;player.bomb=3;
-spawnStars();
-spawnPhase();
-gameRunning=true;
-loop();
+player.hp=player.maxHP;player.x=240;player.y=550;player.invincible=0;player.bomb=3;
+spawnStars();spawnPhase();gameRunning=true;loop();
 }
-
 function restart(){location.reload();}
 
 // -------------------- STARS --------------------
@@ -85,7 +73,7 @@ function spawnStars(){stars=[];for(let i=0;i<120;i++){stars.push({x:rand(0,480),
 
 // -------------------- PHASE --------------------
 function spawnPhase(){
-enemies=[];
+enemies=[];document.getElementById("phase").textContent=phase;
 if(phase<10){
 let count=phase*3;
 for(let i=0;i<count;i++){
@@ -96,34 +84,40 @@ enemies.push({x:240,y:120,vx:2,vy:1,hp:120,type:"mid"});
 }
 }else{spawnBoss();}
 }
-
 function spawnBoss(){
 boss={x:240,y:-120,vx:0,vy:1,hp:500,maxHP:500,phase:0,timer:0,entered:false};
 }
 
 // -------------------- SHOOT --------------------
 function playerShoot(){if(player.shootCool>0)return;
-bullets.push({x:player.x,y:player.y,vy:-7});
-player.shootCool=10;}
+bullets.push({x:player.x,y:player.y,vy:-7});player.shootCool=10;}
 setInterval(()=>{if(keys[" "] && gameRunning && !paused)playerShoot();},100);
 
+// -------------------- ENEMY SHOOT --------------------
+function enemyShoot(){
+enemies.forEach(e=>{
+if(e.type==="small" && frame%120===0){
+enemyBullets.push({x:e.x,y:e.y,vx:rand(-1,1),vy:2+phase*0.2});
+}
+if(e.type==="mid" && frame%60===0){
+for(let i=-1;i<=1;i++){enemyBullets.push({x:e.x,y:e.y,vx:i*1.5,vy:3});}
+}
+});
+if(boss && boss.entered){bossPattern();}
+}
+
 // -------------------- BOSS PATTERN --------------------
-function bossPattern(){
-if(!boss.entered)return;
-boss.timer++;
+function bossPattern(){boss.timer++;
 if(boss.phase===0 && boss.timer%50===0){for(let i=0;i<8;i++){let a=i*Math.PI/4;enemyBullets.push({x:boss.x,y:boss.y,vx:Math.cos(a)*2,vy:Math.sin(a)*2});}}
 if(boss.phase===1 && boss.timer%30===0){for(let i=0;i<16;i++){let a=i*Math.PI/8+boss.timer*0.05;enemyBullets.push({x:boss.x,y:boss.y,vx:Math.cos(a)*3,vy:Math.sin(a)*3});}}
 if(boss.phase===2 && boss.timer%40===0){for(let i=-3;i<=3;i++){enemyBullets.push({x:boss.x,y:boss.y,vx:i,vy:3});}}
-if(boss.hp<350)boss.phase=1;
-if(boss.hp<200)boss.phase=2;
+if(boss.hp<350)boss.phase=1;if(boss.hp<200)boss.phase=2;
 }
 
 // -------------------- UPDATE --------------------
-function update(){
-if(!gameRunning || paused)return;
-frame++;
+function update(){if(!gameRunning||paused)return;frame++;
 
-// PLAYER movement
+// PLAYER
 if(keys["ArrowLeft"]||keys["a"])player.x-=player.speed;
 if(keys["ArrowRight"]||keys["d"])player.x+=player.speed;
 if(keys["ArrowUp"]||keys["w"])player.y-=player.speed;
@@ -139,27 +133,22 @@ stars.forEach(s=>{s.y+=s.speed;if(s.y>640){s.y=0;s.x=rand(0,480);}});
 // ENEMIES
 enemies.forEach(e=>{e.x+=e.vx;e.y+=e.vy;if(e.x<20||e.x>460)e.vx*=-1;if(e.y<20||e.y>320)e.vy*=-1;});
 
-// BOSS
-if(boss){
-if(!boss.entered){boss.y+=boss.vy;if(boss.y>120)boss.entered=true;}
-bossPattern();
-}
+// ENEMY SHOOT
+enemyShoot();
 
 // BULLETS
 bullets.forEach((b,i)=>{b.y+=b.vy; if(b.y<0) bullets.splice(i,1);});
-enemyBullets.forEach((b,i)=>{b.x+=b.vx; b.y+=b.vy; if(b.y>640||b.y<0||b.x<0||b.x>480) enemyBullets.splice(i,1);});
+enemyBullets.forEach((b,i)=>{b.x+=b.vx;b.y+=b.vy;if(b.y>640||b.y<0||b.x<0||b.x>480) enemyBullets.splice(i,1);});
 
 // COLLISIONS
-bullets.forEach((b,bi)=>{
-enemies.forEach((e,ei)=>{if(dist(b,e)<12){e.hp--;bullets.splice(bi,1);if(e.hp<=0)enemies.splice(ei,1);score+=50;}});
-if(boss && dist(b,boss)<25){boss.hp--;bullets.splice(bi,1);}
-});
+bullets.forEach((b,bi)=>{enemies.forEach((e,ei)=>{if(dist(b,e)<12){e.hp--;bullets.splice(bi,1);if(e.hp<=0)enemies.splice(ei,1);score+=50;}});if(boss && dist(b,boss)<25){boss.hp--;bullets.splice(bi,1);}});
 enemyBullets.forEach((b,i)=>{if(dist(b,player)<10 && player.invincible<=0){player.hp-=10;player.invincible=30;enemyBullets.splice(i,1);if(player.hp<=0)gameOver();}});
 
 // NEXT PHASE
 if(enemies.length===0 && (!boss || boss.hp<=0)){phase++;if(phase<=10)spawnPhase();}
 document.getElementById("playerHPbar").style.width=(player.hp/player.maxHP*100)+"%";
 document.getElementById("bossHPbar").style.width=(boss?boss.hp/boss.maxHP*100:0)+"%";
+document.getElementById("score").textContent=score;
 }
 
 // -------------------- DRAW --------------------

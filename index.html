@@ -3,57 +3,21 @@
 <head>
 <meta charset="UTF-8">
 <title>Brutal Danmaku Invader</title>
-
 <style>
-body{
-margin:0;
-background:black;
-color:white;
-font-family:monospace;
-text-align:center;
-}
-
-canvas{
-background:#000;
-display:block;
-margin:auto;
-image-rendering: pixelated;
-}
-
-#ui{
-position:absolute;
-top:10px;
-left:10px;
-font-size:18px;
-}
-
-#startScreen{
-position:absolute;
-top:0;
-left:0;
-right:0;
-bottom:0;
-display:flex;
-flex-direction:column;
-justify-content:center;
-align-items:center;
-background:black;
-}
-
-button{
-font-size:24px;
-padding:10px 30px;
-cursor:pointer;
-}
+body{margin:0;background:black;color:white;font-family:monospace;text-align:center}
+canvas{background:#000;display:block;margin:auto;image-rendering:pixelated}
+#ui{position:absolute;top:10px;left:10px;font-size:18px}
+#startScreen{position:absolute;top:0;left:0;right:0;bottom:0;display:flex;flex-direction:column;justify-content:center;align-items:center;background:black}
+button{font-size:24px;padding:10px 30px;cursor:pointer}
 </style>
 </head>
-
 <body>
 
 <div id="ui">
 HP <span id="hp">100</span><br>
 Lives <span id="lives">10</span><br>
-Score <span id="score">0</span>
+Score <span id="score">0</span><br>
+Phase <span id="phase">1</span>
 </div>
 
 <div id="startScreen">
@@ -68,8 +32,8 @@ Score <span id="score">0</span>
 
 <script>
 
-const canvas = document.getElementById("game")
-const ctx = canvas.getContext("2d")
+const canvas=document.getElementById("game")
+const ctx=canvas.getContext("2d")
 
 let gameRunning=false
 let paused=false
@@ -77,14 +41,7 @@ let paused=false
 let score=0
 let phase=1
 
-const player={
-x:400,
-y:520,
-size:16,
-hit:4,
-hp:100,
-lives:10
-}
+const player={x:400,y:520,size:16,hit:4,hp:100,lives:10}
 
 const bullets=[]
 const enemyBullets=[]
@@ -94,15 +51,12 @@ const explosions=[]
 
 const keys={}
 
-document.addEventListener("keydown",e=>{
+addEventListener("keydown",e=>{
 keys[e.key]=true
-
 if(e.key==="p") paused=!paused
 })
 
-document.addEventListener("keyup",e=>{
-keys[e.key]=false
-})
+addEventListener("keyup",e=>keys[e.key]=false)
 
 function startGame(){
 document.getElementById("startScreen").style.display="none"
@@ -114,24 +68,31 @@ loop()
 function spawnEnemies(){
 
 for(let i=0;i<10+phase;i++){
+
 enemies.push({
-x:60+i*60,
-y:80,
+
+x:80+i*50,
+y:80+Math.random()*80,
 hp:40+phase*10,
 cool:0,
 boss:false
+
 })
+
 }
 
 if(phase%2===0){
 
+
 enemies.push({
-x:350,
+
+x:400,
 y:120,
 hp:500,
 cool:0,
 boss:true,
 form:1
+
 })
 
 }
@@ -140,22 +101,18 @@ form:1
 
 function shoot(){
 
-bullets.push({
-x:player.x,
-y:player.y-10,
-vy:-8
-})
+bullets.push({x:player.x,y:player.y-10,vy:-9})
 
 }
 
 function update(){
 
-if(keys["ArrowLeft"]) player.x-=5
-if(keys["ArrowRight"]) player.x+=5
+if(keys["ArrowLeft"]) player.x-=6
+if(keys["ArrowRight"]) player.x+=6
 
 player.x=Math.max(20,Math.min(780,player.x))
 
-if(keys[" "] && Math.random()<0.4) shoot()
+if(keys[" "] && Math.random()<0.35) shoot()
 
 bullets.forEach(b=>b.y+=b.vy)
 
@@ -164,26 +121,39 @@ b.x+=b.vx
 b.y+=b.vy
 })
 
-enemies.forEach(e=>{
+items.forEach(i=>{
+i.y+=2
+})
+
+
+for(let e of enemies){
 
 if(!e.boss){
-e.x+=Math.sin(Date.now()/500)*0.5
+
+e.x+=Math.sin(Date.now()/300+e.y)*1.5
+
 }
 
 if(e.cool<=0){
 
 firePattern(e)
 
-e.cool=60-phase*3
-if(e.cool<10)e.cool=10
+e.cool=70-phase*3
+if(e.cool<12)e.cool=12
 
-}else{
-e.cool--
+}else e.cool--
+
+
+
 }
 
-})
-
 checkCollisions()
+
+
+if(enemies.length===0){
+phase++
+spawnEnemies()
+}
 
 }
 
@@ -194,25 +164,29 @@ for(let i=0;i<12;i++){
 const a=i*Math.PI*2/12
 
 enemyBullets.push({
+
 x:e.x,
 y:e.y,
 vx:Math.cos(a)*2,
 vy:Math.sin(a)*2
+
 })
 
 }
 
 if(e.boss){
 
-for(let i=0;i<20;i++){
+for(let i=0;i<24;i++){
 
-const a=i*Math.PI*2/20+Date.now()/300
+const a=i*Math.PI*2/24+Date.now()/300
 
 enemyBullets.push({
+
 x:e.x,
 y:e.y,
 vx:Math.cos(a)*3,
 vy:Math.sin(a)*3
+
 })
 
 }
@@ -229,8 +203,9 @@ enemies.forEach((e,ei)=>{
 
 if(Math.abs(b.x-e.x)<20 && Math.abs(b.y-e.y)<20){
 
-e.hp-=10
 bullets.splice(bi,1)
+
+e.hp-=10
 
 if(e.hp<=0){
 
@@ -240,16 +215,18 @@ createExplosion(e.x,e.y)
 if(e.boss && e.form===1){
 
 e.form=2
+
 e.hp=400
 return
 
 }
 
-if(Math.random()<0.3){
+if(Math.random()<0.4){
 
 items.push({x:e.x,y:e.y})
 
 }
+
 
 enemies.splice(ei,1)
 
@@ -279,11 +256,8 @@ player.x=400
 enemyBullets.length=0
 
 if(player.lives<=0){
-
 alert("GAME OVER")
-
 location.reload()
-
 }
 
 }
@@ -301,20 +275,24 @@ items.splice(ii,1)
 
 }
 
+if(i.y>620) items.splice(ii,1)
+
 })
 
 }
 
 function createExplosion(x,y){
 
-for(let i=0;i<10;i++){
+for(let i=0;i<12;i++){
 
 explosions.push({
+
 x:x,
 y:y,
-vx:(Math.random()-0.5)*4,
-vy:(Math.random()-0.5)*4,
+vx:(Math.random()-0.5)*5,
+vy:(Math.random()-0.5)*5,
 life:30
+
 })
 
 }
@@ -324,11 +302,9 @@ life:30
 function drawPlayer(){
 
 ctx.fillStyle="cyan"
-
 ctx.fillRect(player.x-8,player.y-8,16,16)
 
 ctx.fillStyle="white"
-
 ctx.fillRect(player.x-2,player.y-2,4,4)
 
 }
@@ -336,7 +312,6 @@ ctx.fillRect(player.x-2,player.y-2,4,4)
 function drawEnemy(e){
 
 ctx.fillStyle=e.boss?"purple":"red"
-
 ctx.fillRect(e.x-10,e.y-10,20,20)
 
 }
@@ -344,6 +319,7 @@ ctx.fillRect(e.x-10,e.y-10,20,20)
 function draw(){
 
 ctx.clearRect(0,0,800,600)
+
 
 drawPlayer()
 
@@ -353,10 +329,11 @@ bullets.forEach(b=>ctx.fillRect(b.x-2,b.y-6,4,8))
 ctx.fillStyle="pink"
 enemyBullets.forEach(b=>ctx.fillRect(b.x-3,b.y-3,6,6))
 
+
 enemies.forEach(drawEnemy)
 
 ctx.fillStyle="lime"
-items.forEach(i=>ctx.fillRect(i.x-5,i.y-5,10,10))
+items.forEach(i=>ctx.fillRect(i.x-6,i.y-6,12,12))
 
 ctx.fillStyle="orange"
 
@@ -365,28 +342,33 @@ explosions.forEach((e,ei)=>{
 ctx.fillRect(e.x,e.y,3,3)
 
 e.x+=e.vx
+
 e.y+=e.vy
+
 e.life--
 
 if(e.life<=0) explosions.splice(ei,1)
 
 })
 
+
 document.getElementById("hp").textContent=player.hp
+
 document.getElementById("lives").textContent=player.lives
+
 document.getElementById("score").textContent=score
+
+document.getElementById("phase").textContent=phase
 
 }
 
 function loop(){
 
-if(!gameRunning)return
+if(!gameRunning) return
 
 if(!paused){
-
 update()
 draw()
-
 }
 
 requestAnimationFrame(loop)

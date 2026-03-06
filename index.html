@@ -1,76 +1,23 @@
 <!DOCTYPE html>
-<html>
+<html lang="ja">
 <head>
 <meta charset="UTF-8">
-<title>弾幕ボスバトル</title>
-
+<title>東方級ブラウザ弾幕STG 完全版</title>
 <style>
-body{
-margin:0;
-background:black;
-overflow:hidden;
-font-family:sans-serif;
-color:white;
-text-align:center;
-}
-
-canvas{
-display:block;
-margin:auto;
-background:black;
-}
-
-#ui{
-position:absolute;
-top:0;
-left:0;
-width:100%;
-pointer-events:none;
-}
-
-#bossHP{
-height:20px;
-background:red;
-width:100%;
-transition:width .2s;
-}
-
-.screen{
-position:absolute;
-top:0;
-left:0;
-width:100%;
-height:100%;
-background:black;
-display:flex;
-justify-content:center;
-align-items:center;
-flex-direction:column;
-}
-
-button{
-padding:10px 20px;
-font-size:20px;
-margin-top:20px;
-}
-
-.hidden{
-display:none;
-}
-
-#pauseText{
-position:absolute;
-top:40%;
-width:100%;
-font-size:40px;
-}
+body{margin:0;overflow:hidden;background:black;font-family:sans-serif;color:white;}
+canvas{display:block;margin:auto;background:black;}
+.screen{position:absolute;top:0;left:0;width:100%;height:100%;display:flex;justify-content:center;align-items:center;flex-direction:column;background:black;}
+button{padding:10px 20px;font-size:20px;margin-top:20px;}
+.hidden{display:none;}
+#ui{position:absolute;top:0;left:0;width:100%;pointer-events:none;}
+#playerHPbar,#bossHPbar{height:15px;background:red;transition:width .2s;margin:2px;}
+#pauseText{position:absolute;top:40%;width:100%;font-size:40px;text-align:center;}
 </style>
 </head>
-
 <body>
 
 <div id="startScreen" class="screen">
-<h1>弾幕ボスバトル</h1>
+<h1>東方級ブラウザ弾幕STG</h1>
 <button onclick="startGame()">START</button>
 </div>
 
@@ -79,8 +26,16 @@ font-size:40px;
 <button onclick="restart()">RETRY</button>
 </div>
 
+<div id="clearScreen" class="screen hidden">
+<h1>GAME CLEAR!</h1>
+<button onclick="restart()">RETRY</button>
+</div>
+
 <div id="ui">
-<div id="bossHP"></div>
+<div>PLAYER HP</div>
+<div id="playerHPbar"></div>
+<div>BOSS HP</div>
+<div id="bossHPbar"></div>
 </div>
 
 <div id="pauseText" class="hidden">PAUSE</div>
@@ -88,251 +43,152 @@ font-size:40px;
 <canvas id="game" width="480" height="640"></canvas>
 
 <script>
+// -------------------- GAME STATE --------------------
+const canvas=document.getElementById("game");
+const ctx=canvas.getContext("2d");
 
-const canvas = document.getElementById("game")
-const ctx = canvas.getContext("2d")
+let gameRunning=false,paused=false,frame=0,phase=1,score=0;
 
-let player
-let bullets=[]
-let enemyBullets=[]
-let stars=[]
-let boss
-let keys={}
-let gameRunning=false
-let paused=false
+// PLAYER
+let player={
+x:240,y:550,speed:4,hp:100,maxHP:100,bomb:3,invincible:0,shootCool:0
+};
 
-document.addEventListener("keydown",e=>{
-keys[e.key]=true
-if(e.key==="p")togglePause()
-})
+// ENEMIES & BULLETS
+let bullets=[],enemyBullets=[],enemies=[],boss=null,effects=[],stars=[];
 
-document.addEventListener("keyup",e=>{
-keys[e.key]=false
-})
+// INPUT
+let keys={};
+document.addEventListener("keydown",e=>keys[e.key]=true);
+document.addEventListener("keyup",e=>keys[e.key]=false);
 
+// -------------------- UTIL --------------------
+function rand(min,max){return Math.random()*(max-min)+min;}
+function dist(a,b){return Math.hypot(a.x-b.x,a.y-b.y);}
+
+// -------------------- START/RESTART --------------------
 function startGame(){
-
-document.getElementById("startScreen").classList.add("hidden")
-
-player={
-x:240,
-y:550,
-speed:4
+document.getElementById("startScreen").classList.add("hidden");
+player.hp=player.maxHP;
+player.x=240;player.y=550;player.invincible=0;player.bomb=3;
+spawnStars();
+spawnPhase();
+gameRunning=true;
+loop();
 }
 
-boss={
-x:240,
-y:-100,
-hp:200,
-maxHP:200,
-phase:0,
-timer:0,
-entered:false
+function restart(){location.reload();}
+
+// -------------------- STARS --------------------
+function spawnStars(){stars=[];for(let i=0;i<120;i++){stars.push({x:rand(0,480),y:rand(0,640),speed:rand(1,3)});}}
+
+// -------------------- PHASE --------------------
+function spawnPhase(){
+enemies=[];
+if(phase<10){
+let count=phase*3;
+for(let i=0;i<count;i++){
+enemies.push({x:rand(20,460),y:rand(20,320),vx:rand(-1,1)*(1+phase*0.2),vy:rand(-1,1)*(1+phase*0.2),hp:2+phase,type:"small"});
+}
+if(phase===5||phase===7){
+enemies.push({x:240,y:120,vx:2,vy:1,hp:120,type:"mid"});
+}
+}else{spawnBoss();}
 }
 
-for(let i=0;i<120;i++){
-stars.push({
-x:Math.random()*480,
-y:Math.random()*640,
-speed:Math.random()*2+1
-})
+function spawnBoss(){
+boss={x:240,y:-120,vx:0,vy:1,hp:500,maxHP:500,phase:0,timer:0,entered:false};
 }
 
-gameRunning=true
-loop()
-}
+// -------------------- SHOOT --------------------
+function playerShoot(){if(player.shootCool>0)return;
+for(let i=0;i<1+Math.floor(score/500);i++){
+bullets.push({x:player.x+i*6-(1+Math.floor(score/500))*3,y:player.y,vy:-7});}
+player.shootCool=10;}
+setInterval(()=>{if(keys[" "] && gameRunning && !paused)playerShoot();},100);
 
-function restart(){
-location.reload()
-}
-
-function togglePause(){
-
-if(!gameRunning)return
-
-paused=!paused
-document.getElementById("pauseText").classList.toggle("hidden")
-}
-
-function shoot(){
-bullets.push({
-x:player.x,
-y:player.y,
-speed:7
-})
-}
-
-setInterval(()=>{
-if(keys[" "] && gameRunning && !paused){
-shoot()
-}
-},120)
-
-function spawnPattern(){
-
+// -------------------- BOSS PATTERN --------------------
+function bossPattern(){
+if(!boss.entered)return;
+boss.timer++;
 if(boss.phase===0){
-
-for(let i=0;i<8;i++){
-let angle=i*Math.PI/4
-enemyBullets.push({
-x:boss.x,
-y:boss.y,
-vx:Math.cos(angle)*2,
-vy:Math.sin(angle)*2
-})
-}
-
-}
-
+if(boss.timer%50===0){for(let i=0;i<8;i++){let a=i*Math.PI/4;enemyBullets.push({x:boss.x,y:boss.y,vx:Math.cos(a)*2,vy:Math.sin(a)*2});}}
+if(boss.hp<350)boss.phase=1;}
 if(boss.phase===1){
-
-for(let i=0;i<16;i++){
-let angle=i*Math.PI/8+boss.timer*.05
-enemyBullets.push({
-x:boss.x,
-y:boss.y,
-vx:Math.cos(angle)*3,
-vy:Math.sin(angle)*3
-})
-}
-
-}
-
+if(boss.timer%30===0){for(let i=0;i<16;i++){let a=i*Math.PI/8+boss.timer*0.05;enemyBullets.push({x:boss.x,y:boss.y,vx:Math.cos(a)*3,vy:Math.sin(a)*3});}}
+if(boss.hp<200)boss.phase=2;}
 if(boss.phase===2){
-
-for(let i=-3;i<=3;i++){
-enemyBullets.push({
-x:boss.x,
-y:boss.y,
-vx:i,
-vy:3
-})
+if(boss.timer%40===0){for(let i=-3;i<=3;i++){enemyBullets.push({x:boss.x,y:boss.y,vx:i,vy:3});}}}
 }
 
-}
-
-}
-
+// -------------------- UPDATE --------------------
 function update(){
+if(!gameRunning || paused)return;
+frame++;
 
-if(!gameRunning || paused)return
+// PLAYER
+if(keys["ArrowLeft"]||keys["a"])player.x-=player.speed;
+if(keys["ArrowRight"]||keys["d"])player.x+=player.speed;
+if(keys["ArrowUp"]||keys["w"])player.y-=player.speed;
+if(keys["ArrowDown"]||keys["s"])player.y+=player.speed;
+player.x=Math.max(10,Math.min(470,player.x));
+player.y=Math.max(360,Math.min(630,player.y));
+if(player.invincible>0)player.invincible--;
 
-boss.timer++
+// STARS
+stars.forEach(s=>{s.y+=s.speed;if(s.y>640){s.y=0;s.x=rand(0,480);}});
 
-if(!boss.entered){
+// BULLETS
+bullets.forEach(b=>b.y-=b.vy||7);
+enemyBullets.forEach(b=>{b.x+=b.vx||0;b.y+=b.vy||0;});
 
-boss.y+=1.5
+// ENEMIES
+enemies.forEach(e=>{e.x+=e.vx;e.y+=e.vy;if(e.x<20||e.x>460)e.vx*=-1;if(e.y<20||e.y>320)e.vy*=-1;});
 
-if(boss.y>120){
-boss.entered=true
+// BOSS
+if(boss){if(!boss.entered){boss.y+=boss.vy;if(boss.y>120)boss.entered=true;}bossPattern();}
+
+// COLLISIONS
+bullets.forEach((b,bi)=>{if(boss && dist(b,boss)<25){boss.hp--;bullets.splice(bi,1);}enemies.forEach((e,ei)=>{if(dist(b,e)<12){e.hp--;bullets.splice(bi,1);if(e.hp<=0){enemies.splice(ei,1);score+=50;}}})});
+
+enemyBullets.forEach((b,bi)=>{if(dist(b,player)<8 && player.invincible<=0){player.hp-=10;player.invincible=30;enemyBullets.splice(bi,1);if(player.hp<=0){gameOver();}}});
+
+// NEXT PHASE
+if(enemies.length===0 && (!boss||boss.hp<=0)){phase++;if(phase<=10)spawnPhase();}
+document.getElementById("playerHPbar").style.width=(player.hp/player.maxHP*100)+"%";
+document.getElementById("bossHPbar").style.width=(boss?boss.hp/boss.maxHP*100:0)+"%";
 }
 
-}
-
-if(boss.entered && boss.timer%60===0){
-
-spawnPattern()
-
-if(boss.hp<130)boss.phase=1
-if(boss.hp<60)boss.phase=2
-
-}
-
-if(keys["ArrowLeft"]||keys["a"])player.x-=player.speed
-if(keys["ArrowRight"]||keys["d"])player.x+=player.speed
-if(keys["ArrowUp"]||keys["w"])player.y-=player.speed
-if(keys["ArrowDown"]||keys["s"])player.y+=player.speed
-
-stars.forEach(s=>{
-s.y+=s.speed
-if(s.y>640){
-s.y=0
-s.x=Math.random()*480
-}
-})
-
-bullets.forEach(b=>b.y-=b.speed)
-
-enemyBullets.forEach(b=>{
-b.x+=b.vx
-b.y+=b.vy
-})
-
-bullets.forEach((b,i)=>{
-
-if(Math.hypot(b.x-boss.x,b.y-boss.y)<25){
-boss.hp--
-bullets.splice(i,1)
-}
-
-})
-
-enemyBullets.forEach(b=>{
-if(Math.hypot(b.x-player.x,b.y-player.y)<10){
-gameOver()
-}
-})
-
-document.getElementById("bossHP").style.width=
-(boss.hp/boss.maxHP*100)+"%"
-
-if(boss.hp<=0){
-gameOver()
-}
-
-}
-
+// -------------------- DRAW --------------------
 function draw(){
-
-ctx.clearRect(0,0,480,640)
-
-ctx.fillStyle="white"
-stars.forEach(s=>{
-ctx.fillRect(s.x,s.y,2,2)
-})
-
-ctx.fillStyle="cyan"
-ctx.fillRect(player.x-5,player.y-5,10,10)
-
-ctx.fillStyle="yellow"
-bullets.forEach(b=>{
-ctx.fillRect(b.x-2,b.y-8,4,8)
-})
-
-ctx.fillStyle="red"
-enemyBullets.forEach(b=>{
-ctx.beginPath()
-ctx.arc(b.x,b.y,4,0,Math.PI*2)
-ctx.fill()
-})
-
-ctx.fillStyle="purple"
-ctx.beginPath()
-ctx.arc(boss.x,boss.y,25,0,Math.PI*2)
-ctx.fill()
-
+ctx.clearRect(0,0,480,640);
+// STARS
+ctx.fillStyle="white";stars.forEach(s=>ctx.fillRect(s.x,s.y,2,2));
+// PLAYER
+ctx.fillStyle="cyan";ctx.fillRect(player.x-5,player.y-5,10,10);
+// BULLETS
+ctx.fillStyle="yellow";bullets.forEach(b=>ctx.fillRect(b.x-2,b.y-8,4,8));
+// ENEMY BULLETS
+ctx.fillStyle="red";enemyBullets.forEach(b=>{ctx.beginPath();ctx.arc(b.x,b.y,4,0,Math.PI*2);ctx.fill();});
+// ENEMIES
+ctx.fillStyle="orange";enemies.forEach(e=>ctx.fillRect(e.x-6,e.y-6,12,12));
+// BOSS
+if(boss){ctx.fillStyle="purple";ctx.fillRect(boss.x-25,boss.y-25,50,50);}
 }
 
+// -------------------- GAME OVER --------------------
 function gameOver(){
-
-gameRunning=false
-
-document
-.getElementById("gameOverScreen")
-.classList.remove("hidden")
-
+gameRunning=false;
+document.getElementById("gameOverScreen").classList.remove("hidden");
 }
 
+// -------------------- LOOP --------------------
 function loop(){
-
-update()
-draw()
-
-requestAnimationFrame(loop)
-
+update();
+draw();
+if(gameRunning)requestAnimationFrame(loop);
 }
 
 </script>
-
 </body>
 </html>

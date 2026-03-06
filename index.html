@@ -61,6 +61,7 @@ let bullets=[],enemyBullets=[],enemies=[],boss=null,effects=[],stars=[];
 let keys={};
 document.addEventListener("keydown",e=>keys[e.key]=true);
 document.addEventListener("keyup",e=>keys[e.key]=false);
+document.addEventListener("keydown",e=>{if(e.key==="p") togglePause();});
 
 // -------------------- UTIL --------------------
 function rand(min,max){return Math.random()*(max-min)+min;}
@@ -102,8 +103,7 @@ boss={x:240,y:-120,vx:0,vy:1,hp:500,maxHP:500,phase:0,timer:0,entered:false};
 
 // -------------------- SHOOT --------------------
 function playerShoot(){if(player.shootCool>0)return;
-for(let i=0;i<1+Math.floor(score/500);i++){
-bullets.push({x:player.x+i*6-(1+Math.floor(score/500))*3,y:player.y,vy:-7});}
+bullets.push({x:player.x,y:player.y,vy:-7});
 player.shootCool=10;}
 setInterval(()=>{if(keys[" "] && gameRunning && !paused)playerShoot();},100);
 
@@ -111,14 +111,11 @@ setInterval(()=>{if(keys[" "] && gameRunning && !paused)playerShoot();},100);
 function bossPattern(){
 if(!boss.entered)return;
 boss.timer++;
-if(boss.phase===0){
-if(boss.timer%50===0){for(let i=0;i<8;i++){let a=i*Math.PI/4;enemyBullets.push({x:boss.x,y:boss.y,vx:Math.cos(a)*2,vy:Math.sin(a)*2});}}
-if(boss.hp<350)boss.phase=1;}
-if(boss.phase===1){
-if(boss.timer%30===0){for(let i=0;i<16;i++){let a=i*Math.PI/8+boss.timer*0.05;enemyBullets.push({x:boss.x,y:boss.y,vx:Math.cos(a)*3,vy:Math.sin(a)*3});}}
-if(boss.hp<200)boss.phase=2;}
-if(boss.phase===2){
-if(boss.timer%40===0){for(let i=-3;i<=3;i++){enemyBullets.push({x:boss.x,y:boss.y,vx:i,vy:3});}}}
+if(boss.phase===0 && boss.timer%50===0){for(let i=0;i<8;i++){let a=i*Math.PI/4;enemyBullets.push({x:boss.x,y:boss.y,vx:Math.cos(a)*2,vy:Math.sin(a)*2});}}
+if(boss.phase===1 && boss.timer%30===0){for(let i=0;i<16;i++){let a=i*Math.PI/8+boss.timer*0.05;enemyBullets.push({x:boss.x,y:boss.y,vx:Math.cos(a)*3,vy:Math.sin(a)*3});}}
+if(boss.phase===2 && boss.timer%40===0){for(let i=-3;i<=3;i++){enemyBullets.push({x:boss.x,y:boss.y,vx:i,vy:3});}}
+if(boss.hp<350)boss.phase=1;
+if(boss.hp<200)boss.phase=2;
 }
 
 // -------------------- UPDATE --------------------
@@ -126,7 +123,7 @@ function update(){
 if(!gameRunning || paused)return;
 frame++;
 
-// PLAYER
+// PLAYER movement
 if(keys["ArrowLeft"]||keys["a"])player.x-=player.speed;
 if(keys["ArrowRight"]||keys["d"])player.x+=player.speed;
 if(keys["ArrowUp"]||keys["w"])player.y-=player.speed;
@@ -134,27 +131,33 @@ if(keys["ArrowDown"]||keys["s"])player.y+=player.speed;
 player.x=Math.max(10,Math.min(470,player.x));
 player.y=Math.max(360,Math.min(630,player.y));
 if(player.invincible>0)player.invincible--;
+if(player.shootCool>0)player.shootCool--;
 
 // STARS
 stars.forEach(s=>{s.y+=s.speed;if(s.y>640){s.y=0;s.x=rand(0,480);}});
-
-// BULLETS
-bullets.forEach(b=>b.y-=b.vy||7);
-enemyBullets.forEach(b=>{b.x+=b.vx||0;b.y+=b.vy||0;});
 
 // ENEMIES
 enemies.forEach(e=>{e.x+=e.vx;e.y+=e.vy;if(e.x<20||e.x>460)e.vx*=-1;if(e.y<20||e.y>320)e.vy*=-1;});
 
 // BOSS
-if(boss){if(!boss.entered){boss.y+=boss.vy;if(boss.y>120)boss.entered=true;}bossPattern();}
+if(boss){
+if(!boss.entered){boss.y+=boss.vy;if(boss.y>120)boss.entered=true;}
+bossPattern();
+}
+
+// BULLETS
+bullets.forEach((b,i)=>{b.y+=b.vy; if(b.y<0) bullets.splice(i,1);});
+enemyBullets.forEach((b,i)=>{b.x+=b.vx; b.y+=b.vy; if(b.y>640||b.y<0||b.x<0||b.x>480) enemyBullets.splice(i,1);});
 
 // COLLISIONS
-bullets.forEach((b,bi)=>{if(boss && dist(b,boss)<25){boss.hp--;bullets.splice(bi,1);}enemies.forEach((e,ei)=>{if(dist(b,e)<12){e.hp--;bullets.splice(bi,1);if(e.hp<=0){enemies.splice(ei,1);score+=50;}}})});
-
-enemyBullets.forEach((b,bi)=>{if(dist(b,player)<8 && player.invincible<=0){player.hp-=10;player.invincible=30;enemyBullets.splice(bi,1);if(player.hp<=0){gameOver();}}});
+bullets.forEach((b,bi)=>{
+enemies.forEach((e,ei)=>{if(dist(b,e)<12){e.hp--;bullets.splice(bi,1);if(e.hp<=0)enemies.splice(ei,1);score+=50;}});
+if(boss && dist(b,boss)<25){boss.hp--;bullets.splice(bi,1);}
+});
+enemyBullets.forEach((b,i)=>{if(dist(b,player)<10 && player.invincible<=0){player.hp-=10;player.invincible=30;enemyBullets.splice(i,1);if(player.hp<=0)gameOver();}});
 
 // NEXT PHASE
-if(enemies.length===0 && (!boss||boss.hp<=0)){phase++;if(phase<=10)spawnPhase();}
+if(enemies.length===0 && (!boss || boss.hp<=0)){phase++;if(phase<=10)spawnPhase();}
 document.getElementById("playerHPbar").style.width=(player.hp/player.maxHP*100)+"%";
 document.getElementById("bossHPbar").style.width=(boss?boss.hp/boss.maxHP*100:0)+"%";
 }
@@ -177,18 +180,11 @@ if(boss){ctx.fillStyle="purple";ctx.fillRect(boss.x-25,boss.y-25,50,50);}
 }
 
 // -------------------- GAME OVER --------------------
-function gameOver(){
-gameRunning=false;
-document.getElementById("gameOverScreen").classList.remove("hidden");
-}
+function gameOver(){gameRunning=false;document.getElementById("gameOverScreen").classList.remove("hidden");}
 
 // -------------------- LOOP --------------------
-function loop(){
-update();
-draw();
-if(gameRunning)requestAnimationFrame(loop);
-}
-
+function loop(){update();draw();if(gameRunning)requestAnimationFrame(loop);}
 </script>
+
 </body>
 </html>

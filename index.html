@@ -1,306 +1,238 @@
 <!DOCTYPE html>
-
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<title>Ultimate Danmaku</title>
-
+<title>Extreme Danmaku Invader Pixel Edition</title>
 <style>
-body{margin:0;background:black;color:white;font-family:monospace;overflow:hidden}
-canvas{display:block;margin:auto;background:#02020a;image-rendering:pixelated}
-
-#ui{
-position:absolute;
-top:10px;
-left:50%;
-transform:translateX(-50%);
-width:600px
-}
-
-.bar{height:12px;background:#333;margin:4px 0}
-.fill{height:100%;background:#0f0}
-
+body{margin:0;background:#000;color:#fff;font-family:sans-serif;text-align:center}
+canvas{background:#000;display:block;margin:auto;border:2px solid #333;image-rendering:pixelated}
+#ui{position:absolute;top:8px;left:50%;transform:translateX(-50%);width:420px}
+.bar{height:10px;background:#333;border-radius:5px;overflow:hidden;margin-bottom:4px}
+.fill{height:100%;background:#0f0;width:100%}
+#bossFill{background:#f44}
 </style>
-
 </head>
-
 <body>
-
 <div id="ui">
-
-HP
-
+<div>HP</div>
 <div class="bar"><div id="hpFill" class="fill"></div></div>
-
-Score <span id="score">0</span>
-
-Boss <span id="bossName">None</span>
-
+<div id="bossUI" style="display:none">
+<div>Boss</div>
+<div class="bar"><div id="bossFill" class="fill"></div></div>
 </div>
-
-<canvas id="game" width="600" height="800"></canvas>
-
+<div id="score">Score 0</div>
+</div>
+<canvas id="game" width="420" height="600"></canvas>
 <script>
-
-const canvas=game
+const canvas=document.getElementById("game")
 const ctx=canvas.getContext("2d")
 
 let keys={}
-addEventListener("keydown",e=>keys[e.key]=true)
-addEventListener("keyup",e=>keys[e.key]=false)
-
-const player={x:300,y:700,hp:100,cool:0}
-
 let bullets=[]
 let enemyBullets=[]
-let explosions=[]
-let stars=[]
-
-let score=0
-let bossIndex=0
+let enemies=[]
 let boss=null
+let score=0
+let phase=1
 
-for(let i=0;i<150;i++){
-stars.push({x:Math.random()*600,y:Math.random()*800,s:Math.random()*2+1})
-}
+const player={x:210,y:540,hp:100,cool:0}
 
-function shoot(x,y,vx,vy,enemy=false){
-const b={x,y,vx,vy}
-if(enemy)enemyBullets.push(b)
-else bullets.push(b)
-}
+window.addEventListener("keydown",e=>keys[e.key]=true)
+window.addEventListener("keyup",e=>keys[e.key]=false)
 
-function explode(x,y){
-for(let i=0;i<12;i++){
-explosions.push({
-x,y,
-vx:(Math.random()*2-1)*4,
-vy:(Math.random()*2-1)*4,
-life:30
-})
-}
-}
-
-function flower(cx,cy,petals,speed,rot){
-for(let i=0;i<petals;i++){
-let a=i*Math.PI*2/petals+rot
-shoot(cx,cy,Math.cos(a)*speed,Math.sin(a)*speed,true)
-}
-}
-
-function spiral(cx,cy,count,speed,rot){
-for(let i=0;i<count;i++){
-let a=rot+i*0.2
-shoot(cx,cy,Math.cos(a)*speed,Math.sin(a)*speed,true)
-}
-}
-
-function star(cx,cy,count,speed,rot){
-for(let i=0;i<count;i++){
-let a=i*Math.PI*2/count
-shoot(cx,cy,Math.cos(a+rot)*speed,Math.sin(a+rot)*speed,true)
-shoot(cx,cy,Math.cos(a+rot)*speed*0.5,Math.sin(a+rot)*speed*0.5,true)
-}
-}
-
-const bosses=[
-
-{name:"Ignis",hp:1500,pattern:0},
-{name:"Glacia",hp:1800,pattern:1},
-{name:"Volt",hp:2000,pattern:2},
-{name:"Gravitas",hp:2300,pattern:3},
-{name:"Hanabi",hp:3000,pattern:4}
-
+// ---- pixel sprites ----
+const playerSprite=[
+"0011100",
+"0111110",
+"1111111",
+"1011101",
+"0011100"
 ]
 
+const enemySprite=[
+"01110",
+"11111",
+"10101",
+"11111",
+"01010"
+]
+
+const bossSprite=[
+"00111100",
+"01111110",
+"11111111",
+"11011011",
+"11111111",
+"01111110",
+"00111100"
+]
+
+function drawSprite(sprite,x,y,scale,color){
+ ctx.fillStyle=color
+ for(let r=0;r<sprite.length;r++){
+  for(let c=0;c<sprite[r].length;c++){
+   if(sprite[r][c]==="1"){
+    ctx.fillRect(x+c*scale,y+r*scale,scale,scale)
+   }
+  }
+ }
+}
+
+function spawnWave(){
+ enemies=[]
+ for(let i=0;i<10;i++){
+  enemies.push({x:40+i*34,y:60,t:Math.random()*10})
+ }
+}
+
 function spawnBoss(){
-
-let data=bosses[bossIndex]
-
-boss={
-x:300,
-y:120,
-hp:data.hp,
-max:data.hp,
-pattern:data.pattern,
-t:0,
-name:data.name
+ boss={x:210,y:100,hp:2000,max:2000,t:0,pattern:0}
+ document.getElementById("bossUI").style.display="block"
 }
 
-bossName.textContent=data.name
+function shoot(x,y,vx,vy){enemyBullets.push({x,y,vx,vy})}
 
+function flower(cx,cy,n,s,rot){
+ for(let i=0;i<n;i++){
+  let a=i*Math.PI*2/n+rot
+  shoot(cx,cy,Math.cos(a)*s,Math.sin(a)*s)
+ }
 }
 
-spawnBoss()
+function spiral(cx,cy,n,s,rot){
+ for(let i=0;i<n;i++){
+  let a=rot+i*0.2
+  shoot(cx,cy,Math.cos(a)*s,Math.sin(a)*s)
+ }
+}
+
+function rain(){
+ for(let i=0;i<12;i++){
+  shoot(Math.random()*420,-10,0,3+Math.random()*2)
+ }
+}
 
 function update(){
 
-if(player.hp<=0)return
+ if(keys.ArrowLeft)player.x-=5
+ if(keys.ArrowRight)player.x+=5
+ player.x=Math.max(10,Math.min(canvas.width-10,player.x))
 
-if(keys["ArrowLeft"])player.x-=6
-if(keys["ArrowRight"])player.x+=6
-player.x=Math.max(10,Math.min(590,player.x))
+ if(keys[" "]&&player.cool<=0){
+  bullets.push({x:player.x,y:player.y})
+  player.cool=6
+ }
+ if(player.cool>0)player.cool--
 
-if(keys[" "]&&player.cool<=0){
-shoot(player.x,player.y,0,-10)
-player.cool=6
-}
+ bullets.forEach(b=>b.y-=9)
+ bullets=bullets.filter(b=>b.y>-20)
 
-player.cool--
+ enemyBullets.forEach(b=>{
+  b.x+=b.vx
+  b.y+=b.vy
+  if(Math.hypot(b.x-player.x,b.y-player.y)<10){
+   player.hp-=4
+   b.y=1000
+  }
+ })
+ enemyBullets=enemyBullets.filter(b=>b.y<620&&b.x>-20&&b.x<440)
 
-for(let s of stars){
-s.y+=s.s
-if(s.y>800)s.y=0
-}
+ if(boss){
+  boss.t+=0.05
+  boss.x=210+Math.sin(boss.t)*140
 
-boss.t+=0.04
-boss.x=300+Math.sin(boss.t)*200
+  if(boss.pattern==0){
+   if(Math.random()<0.2)flower(boss.x,boss.y,30,2,boss.t)
+   if(boss.hp<1400)boss.pattern=1
+  }
+  else if(boss.pattern==1){
+   spiral(boss.x,boss.y,10,2.5,boss.t*3)
+   if(Math.random()<0.1)rain()
+   if(boss.hp<700)boss.pattern=2
+  }
+  else{
+   flower(boss.x,boss.y,60,2.5,boss.t*2)
+   spiral(boss.x,boss.y,20,3,boss.t*5)
+  }
 
-switch(boss.pattern){
+  bullets.forEach(b=>{
+   if(Math.hypot(b.x-boss.x,b.y-boss.y)<30){
+    boss.hp-=2
+    score+=5
+    b.y=-100
+   }
+  })
 
-case 0:
-spiral(boss.x,boss.y,12,3,boss.t)
-break
+  if(boss.hp<=0){alert("GAME CLEAR");location.reload()}
 
-case 1:
-star(boss.x,boss.y,10,3,boss.t)
-break
+  document.getElementById("bossFill").style.width=(boss.hp/boss.max*100)+"%"
+ }
 
-case 2:
-flower(boss.x,boss.y,20,4,boss.t)
-break
+ else{
+  enemies.forEach(e=>{
+   e.t+=0.06
+   e.x+=Math.sin(e.t)*3
+   e.y+=Math.sin(e.t*2)*0.6
 
-case 3:
-spiral(boss.x,boss.y,20,5,boss.t*2)
-flower(boss.x,boss.y,12,3,-boss.t)
-break
+   if(Math.random()<0.03){
+    let dx=player.x-e.x
+    let dy=player.y-e.y
+    let d=Math.hypot(dx,dy)
+    shoot(e.x,e.y,dx/d*2,dy/d*2)
+   }
 
-case 4:
-flower(boss.x,boss.y,30,4,boss.t)
-star(boss.x,boss.y,16,3,boss.t*2)
-break
+   bullets.forEach(b=>{
+    if(Math.hypot(b.x-e.x,b.y-e.y)<12){
+     e.y=1000
+     score+=10
+     b.y=-100
+    }
+   })
+  })
 
-}
+  enemies=enemies.filter(e=>e.y<900)
 
-for(let b of bullets){
-b.x+=b.vx
-b.y+=b.vy
-}
+  if(enemies.length==0){
+   phase++
+   if(phase>=4)spawnBoss()
+   else spawnWave()
+  }
+ }
 
-for(let b of enemyBullets){
-b.x+=b.vx
-b.y+=b.vy
-}
+ if(player.hp<=0){alert("GAME OVER");location.reload()}
 
-for(let b of bullets){
-if(Math.hypot(b.x-boss.x,b.y-boss.y)<30){
-boss.hp-=5
-b.y=-100
-}
-}
-
-for(let b of enemyBullets){
-
-let d=Math.hypot(b.x-player.x,b.y-player.y)
-
-if(d<12){
-player.hp-=10
-b.y=900
-explode(player.x,player.y)
-}
-
-}
-
-if(boss.hp<=0){
-
-explode(boss.x,boss.y)
-
-bossIndex++
-
-if(bossIndex<bosses.length){
-
-spawnBoss()
-
-}else{
-
-boss=null
-
-}
-
-}
-
-bullets=bullets.filter(b=>b.y>-20)
-enemyBullets=enemyBullets.filter(b=>b.y<820)
-
-for(let ex of explosions){
-ex.x+=ex.vx
-ex.y+=ex.vy
-ex.life--
-}
-
-explosions=explosions.filter(e=>e.life>0)
-
-hpFill.style.width=player.hp+"%"
-
-scoreEl.textContent=score
-
-}
-
-function pixel(x,y,s){
-ctx.fillRect(Math.floor(x/s)*s,Math.floor(y/s)*s,s,s)
+ document.getElementById("hpFill").style.width=player.hp+"%"
+ document.getElementById("score").textContent="Score "+score
 }
 
 function draw(){
+ ctx.clearRect(0,0,canvas.width,canvas.height)
 
-ctx.fillStyle="black"
-ctx.fillRect(0,0,600,800)
+ drawSprite(playerSprite,player.x-14,player.y-10,4,"#0ff")
 
-ctx.fillStyle="white"
-for(let s of stars)pixel(s.x,s.y,2)
+ ctx.fillStyle="#ff0"
+ bullets.forEach(b=>ctx.fillRect(b.x-2,b.y-6,4,8))
 
-ctx.fillStyle="#0ff"
-pixel(player.x,player.y,6)
+ ctx.fillStyle="#f55"
+ enemyBullets.forEach(b=>ctx.fillRect(b.x-2,b.y-2,4,4))
 
-ctx.fillStyle="#ff0"
-for(let b of bullets)pixel(b.x,b.y,4)
+ enemies.forEach(e=>{
+  drawSprite(enemySprite,e.x-10,e.y-10,4,"#0f0")
+ })
 
-ctx.fillStyle="#f44"
-for(let b of enemyBullets)pixel(b.x,b.y,4)
-
-if(boss){
-ctx.fillStyle="#f0f"
-pixel(boss.x,boss.y,24)
-}
-
-ctx.fillStyle="orange"
-for(let ex of explosions)pixel(ex.x,ex.y,4)
-
-if(!boss){
-ctx.fillStyle="white"
-ctx.font="40px monospace"
-ctx.fillText("GAME CLEAR",170,400)
-}
-
-if(player.hp<=0){
-ctx.fillStyle="white"
-ctx.font="40px monospace"
-ctx.fillText("GAME OVER",170,400)
-}
-
+ if(boss){
+  drawSprite(bossSprite,boss.x-16,boss.y-16,4,"#f0f")
+ }
 }
 
 function loop(){
-update()
-draw()
-requestAnimationFrame(loop)
+ update()
+ draw()
+ requestAnimationFrame(loop)
 }
 
-const scoreEl=document.getElementById("score")
-const bossName=document.getElementById("bossName")
-
+spawnWave()
 loop()
-
 </script>
-
 </body>
 </html>

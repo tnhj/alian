@@ -41,7 +41,7 @@ let paused=false
 let score=0
 let phase=1
 
-const player={x:400,y:520,size:16,hit:4,hp:100,lives:10}
+const player={x:400,y:520,size:16,hit:4,hp:100,lives:10,fireCooldown:0}
 
 const bullets=[]
 const enemyBullets=[]
@@ -70,29 +70,26 @@ function spawnEnemies(){
 for(let i=0;i<10+phase;i++){
 
 enemies.push({
-
 x:80+i*50,
 y:80+Math.random()*80,
 hp:40+phase*10,
 cool:0,
-boss:false
-
+boss:false,
+moveSeed:Math.random()*1000
 })
 
 }
 
 if(phase%2===0){
 
-
 enemies.push({
-
 x:400,
 y:120,
 hp:500,
 cool:0,
 boss:true,
-form:1
-
+form:1,
+moveSeed:Math.random()*1000
 })
 
 }
@@ -112,7 +109,12 @@ if(keys["ArrowRight"]) player.x+=6
 
 player.x=Math.max(20,Math.min(780,player.x))
 
-if(keys[" "] && Math.random()<0.35) shoot()
+if(player.fireCooldown>0) player.fireCooldown--
+
+if(keys[" "] && player.fireCooldown<=0){
+shoot()
+player.fireCooldown=18
+}
 
 bullets.forEach(b=>b.y+=b.vy)
 
@@ -121,34 +123,38 @@ b.x+=b.vx
 b.y+=b.vy
 })
 
-items.forEach(i=>{
-i.y+=2
-})
-
+items.forEach(i=>{i.y+=2})
 
 for(let e of enemies){
 
 if(!e.boss){
 
-e.x+=Math.sin(Date.now()/300+e.y)*1.5
+e.x+=Math.sin(Date.now()/300+e.moveSeed)*1.5
+
+e.y+=Math.sin(Date.now()/600+e.moveSeed)*0.5
 
 }
 
+if(e.boss){
+
+e.x+=Math.sin(Date.now()/200+e.moveSeed)*3
+
+e.y+=Math.sin(Date.now()/500+e.moveSeed)*1.2
+
+}
+
+if(e.x<40) e.x=40
+if(e.x>760) e.x=760
+
 if(e.cool<=0){
-
 firePattern(e)
-
 e.cool=70-phase*3
 if(e.cool<12)e.cool=12
-
 }else e.cool--
-
-
 
 }
 
 checkCollisions()
-
 
 if(enemies.length===0){
 phase++
@@ -160,37 +166,17 @@ spawnEnemies()
 function firePattern(e){
 
 for(let i=0;i<12;i++){
-
 const a=i*Math.PI*2/12
 
-enemyBullets.push({
-
-x:e.x,
-y:e.y,
-vx:Math.cos(a)*2,
-vy:Math.sin(a)*2
-
-})
+enemyBullets.push({x:e.x,y:e.y,vx:Math.cos(a)*2,vy:Math.sin(a)*2})
 
 }
 
 if(e.boss){
-
 for(let i=0;i<24;i++){
-
 const a=i*Math.PI*2/24+Date.now()/300
-
-enemyBullets.push({
-
-x:e.x,
-y:e.y,
-vx:Math.cos(a)*3,
-vy:Math.sin(a)*3
-
-})
-
+enemyBullets.push({x:e.x,y:e.y,vx:Math.cos(a)*3,vy:Math.sin(a)*3})
 }
-
 }
 
 }
@@ -204,7 +190,6 @@ enemies.forEach((e,ei)=>{
 if(Math.abs(b.x-e.x)<20 && Math.abs(b.y-e.y)<20){
 
 bullets.splice(bi,1)
-
 e.hp-=10
 
 if(e.hp<=0){
@@ -213,18 +198,17 @@ score+=100
 createExplosion(e.x,e.y)
 
 if(e.boss && e.form===1){
-
 e.form=2
-
 e.hp=400
 return
-
 }
 
-if(Math.random()<0.4){
+let drop=Math.random()
 
-items.push({x:e.x,y:e.y})
-
+if(drop<0.35){
+items.push({x:e.x,y:e.y,type:"heal"})
+}else if(drop<0.38){
+items.push({x:e.x,y:e.y,type:"life"})
 }
 
 
@@ -270,7 +254,9 @@ items.forEach((i,ii)=>{
 
 if(Math.abs(i.x-player.x)<20 && Math.abs(i.y-player.y)<20){
 
-player.hp=Math.min(100,player.hp+30)
+if(i.type==="heal") player.hp=Math.min(100,player.hp+30)
+if(i.type==="life") player.lives++
+
 items.splice(ii,1)
 
 }
@@ -285,15 +271,7 @@ function createExplosion(x,y){
 
 for(let i=0;i<12;i++){
 
-explosions.push({
-
-x:x,
-y:y,
-vx:(Math.random()-0.5)*5,
-vy:(Math.random()-0.5)*5,
-life:30
-
-})
+explosions.push({x:x,y:y,vx:(Math.random()-0.5)*5,vy:(Math.random()-0.5)*5,life:30})
 
 }
 
@@ -320,7 +298,6 @@ function draw(){
 
 ctx.clearRect(0,0,800,600)
 
-
 drawPlayer()
 
 ctx.fillStyle="yellow"
@@ -329,11 +306,12 @@ bullets.forEach(b=>ctx.fillRect(b.x-2,b.y-6,4,8))
 ctx.fillStyle="pink"
 enemyBullets.forEach(b=>ctx.fillRect(b.x-3,b.y-3,6,6))
 
-
 enemies.forEach(drawEnemy)
 
-ctx.fillStyle="lime"
-items.forEach(i=>ctx.fillRect(i.x-6,i.y-6,12,12))
+items.forEach(i=>{
+ctx.fillStyle=i.type==="life"?"cyan":"lime"
+ctx.fillRect(i.x-6,i.y-6,12,12)
+})
 
 ctx.fillStyle="orange"
 

@@ -2,15 +2,15 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>Pixel Battle</title>
+<title>Pixel Boss Battle</title>
 
 <style>
 
 body{
 margin:0;
-background:#000;
-font-family:monospace;
+background:black;
 color:white;
+font-family:monospace;
 overflow:hidden;
 }
 
@@ -18,7 +18,7 @@ canvas{
 display:block;
 margin:auto;
 background:#111;
-image-rendering: pixelated;
+image-rendering:pixelated;
 }
 
 #ui{
@@ -51,7 +51,7 @@ flex-direction:column;
 justify-content:center;
 align-items:center;
 background:black;
-font-size:36px;
+font-size:40px;
 }
 
 button{
@@ -66,7 +66,7 @@ margin-top:20px;
 <body>
 
 <div id="title">
-PIXEL BATTLE
+PIXEL BOSS BATTLE
 <button onclick="startGame()">START</button>
 </div>
 
@@ -93,8 +93,6 @@ const canvas = document.getElementById("game")
 const ctx = canvas.getContext("2d")
 
 let keys={}
-let gameStarted=false
-
 document.addEventListener("keydown",e=>keys[e.key]=true)
 document.addEventListener("keyup",e=>keys[e.key]=false)
 
@@ -121,25 +119,25 @@ const bossSprite=[
 ]
 
 let player={
-x:400,
-y:420,
+x:380,
+y:440,
 hp:100,
-speed:2
+speed:3
 }
 
 let bullets=[]
-let enemies=[]
 let enemyBullets=[]
+let enemies=[]
 let explosions=[]
+let boss=null
 
 let phase=1
 let progress=0
-let boss=null
+let maxProgress=100
 
 function startGame(){
 
 document.getElementById("title").style.display="none"
-gameStarted=true
 
 spawnEnemies()
 
@@ -152,7 +150,6 @@ function drawSprite(sprite,x,y,scale,color){
 ctx.fillStyle=color
 
 for(let r=0;r<sprite.length;r++){
-
 for(let c=0;c<sprite[r].length;c++){
 
 if(sprite[r][c]=="1"){
@@ -165,23 +162,24 @@ scale)
 
 }
 
-}
-
-}
+}}
 
 }
 
 function spawnEnemies(){
 
-for(let i=0;i<5+phase;i++){
+let count=5+phase*2
+
+for(let i=0;i<count;i++){
 
 enemies.push({
+
 x:Math.random()*760,
 y:Math.random()*200,
-hp:10,
-vx:(Math.random()*2-1)*2,
-vy:(Math.random()*2-1)*2,
-shoot:60+Math.random()*60
+vx:(Math.random()*2-1)*(1+phase*0.2),
+vy:(Math.random()*2-1)*(1+phase*0.2),
+shoot:80-Math.min(phase*5,50)
+
 })
 
 }
@@ -191,8 +189,9 @@ shoot:60+Math.random()*60
 function spawnBoss(){
 
 boss={
-x:360,
+x:350,
 y:80,
+vx:2,
 hp:300,
 max:300,
 phase2:false,
@@ -208,16 +207,39 @@ function shoot(){
 bullets.push({
 x:player.x+10,
 y:player.y,
-vy:-6
+vy:-7
 })
 
 }
 
 function explosion(x,y){
 
-explosions.push({
-x,y,
-frame:0
+explosions.push({x,y,frame:0})
+
+}
+
+function splitShot(x,y){
+
+enemyBullets.push({x,y,vx:-2,vy:3})
+enemyBullets.push({x,y,vx:0,vy:3})
+enemyBullets.push({x,y,vx:2,vy:3})
+
+}
+
+function bounceShot(x,y){
+
+enemyBullets.push({x,y,vx:3,vy:2,bounce:true})
+
+}
+
+function summonMinion(){
+
+enemies.push({
+x:boss.x,
+y:boss.y+40,
+vx:(Math.random()*2-1)*2,
+vy:(Math.random()*2-1)*2,
+shoot:100
 })
 
 }
@@ -226,13 +248,10 @@ function update(){
 
 if(keys["ArrowLeft"]) player.x-=player.speed
 if(keys["ArrowRight"]) player.x+=player.speed
-if(keys["ArrowUp"]) player.y-=player.speed
-if(keys["ArrowDown"]) player.y+=player.speed
-
-if(keys[" "] && Math.random()<0.25) shoot()
 
 player.x=Math.max(0,Math.min(780,player.x))
-player.y=Math.max(0,Math.min(480,player.y))
+
+if(keys[" "] && Math.random()<0.3) shoot()
 
 bullets.forEach(b=>b.y+=b.vy)
 
@@ -253,20 +272,32 @@ if(e.shoot<0){
 enemyBullets.push({
 x:e.x+5,
 y:e.y+5,
-vy:3
+vx:0,
+vy:3+phase*0.3
 })
 
-e.shoot=80+Math.random()*80
+e.shoot=80-Math.min(phase*5,50)
 
 }
 
 })
 
-enemyBullets.forEach(b=>b.y+=b.vy)
+enemyBullets.forEach(b=>{
+
+b.x+=b.vx||0
+b.y+=b.vy
+
+if(b.bounce){
+
+if(b.x<0||b.x>800)b.vx*=-1
+
+}
+
+})
 
 enemyBullets.forEach((b,i)=>{
 
-if(Math.abs(b.x-player.x)<10 && Math.abs(b.y-player.y)<10){
+if(Math.abs(b.x-player.x)<12 && Math.abs(b.y-player.y)<12){
 
 player.hp-=5
 explosion(player.x,player.y)
@@ -297,7 +328,7 @@ progress+=10
 
 if(enemies.length==0 && !boss){
 
-if(progress>=100){
+if(progress>=maxProgress){
 
 spawnBoss()
 
@@ -314,32 +345,32 @@ if(boss){
 
 boss.timer++
 
+boss.x+=boss.vx
+boss.y+=Math.sin(boss.timer*0.05)*0.8
+
+if(boss.x<0||boss.x>720)boss.vx*=-1
+
 if(boss.hp<150 && !boss.phase2){
 
 boss.phase2=true
 
 }
 
-if(boss.timer%60==0){
+if(boss.timer%90==0) splitShot(boss.x+30,boss.y)
 
-enemyBullets.push({x:boss.x+30,y:boss.y,vy:4})
-enemyBullets.push({x:boss.x+10,y:boss.y,vy:4})
-enemyBullets.push({x:boss.x+50,y:boss.y,vy:4})
+if(boss.timer%140==0) bounceShot(boss.x+30,boss.y)
 
-}
+if(boss.timer%200==0) summonMinion()
 
-if(boss.phase2 && boss.timer%40==0){
-
-for(let i=-2;i<=2;i++){
+if(boss.phase2 && boss.timer%160==0){
 
 enemyBullets.push({
 x:boss.x+30,
 y:boss.y,
-vy:3,
-vx:i
+vx:0,
+vy:8,
+laser:true
 })
-
-}
 
 }
 
@@ -358,7 +389,7 @@ bullets.splice(i,1)
 
 if(boss.hp<=0){
 
-alert("GAME CLEAR!")
+alert("GAME CLEAR")
 location.reload()
 
 }
@@ -385,8 +416,8 @@ ctx.fillRect(b.x,b.y,3,8)
 })
 
 enemyBullets.forEach(b=>{
-ctx.fillStyle="red"
-ctx.fillRect(b.x,b.y,3,8)
+ctx.fillStyle=b.laser?"cyan":"red"
+ctx.fillRect(b.x,b.y,4,b.laser?20:8)
 })
 
 enemies.forEach(e=>{
@@ -406,9 +437,7 @@ explosions.forEach(e=>{
 ctx.fillStyle="orange"
 
 ctx.beginPath()
-
 ctx.arc(e.x,e.y,e.frame,0,Math.PI*2)
-
 ctx.fill()
 
 })
@@ -419,7 +448,7 @@ function updateUI(){
 
 document.getElementById("hpfill").style.width=player.hp*2+"px"
 
-document.getElementById("phasefill").style.width=progress*2+"px"
+document.getElementById("phasefill").style.width=(progress/maxProgress)*220+"px"
 
 if(boss){
 

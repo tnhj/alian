@@ -1,21 +1,12 @@
 <!DOCTYPE html>
+
 <html>
 <head>
 <meta charset="UTF-8">
-<title>Insane Danmaku Invader</title>
-
+<title>Danmaku Invader</title>
 <style>
-body{
-margin:0;
-background:black;
-overflow:hidden;
-}
-
-canvas{
-display:block;
-margin:auto;
-background:black;
-}
+body{margin:0;background:black;overflow:hidden}
+canvas{display:block;margin:auto;background:black}
 </style>
 </head>
 
@@ -43,7 +34,9 @@ x:300,
 y:620,
 speed:4,
 cool:0,
-lives:10
+hp:100,
+maxHp:100,
+power:1
 }
 
 let bullets=[]
@@ -51,25 +44,7 @@ let enemyBullets=[]
 let enemies=[]
 let boss=null
 let items=[]
-
-function nextPhase(){
-
-phase++
-frame=0
-enemies=[]
-enemyBullets=[]
-
-if(phase<=9){
-
-spawnWave()
-
-}else{
-
-spawnBoss()
-
-}
-
-}
+let effects=[]
 
 function spawnWave(){
 
@@ -80,14 +55,28 @@ for(let i=0;i<count;i++){
 enemies.push({
 
 x:Math.random()*560+20,
-y:Math.random()*250+30,
+y:Math.random()*260+30,
 
 vx:(Math.random()*2-1)*(1+phase*0.2),
 vy:(Math.random()*2-1)*(1+phase*0.2),
 
-hp:2+phase,
+hp:3+phase,
+type:"small"
 
-type:phase>=7 && Math.random()<0.3 ? "mid":"small"
+})
+
+}
+
+if(phase==4||phase==7||phase==9){
+
+enemies.push({
+
+x:300,
+y:120,
+vx:2,
+vy:1,
+hp:120,
+type:"mid"
 
 })
 
@@ -102,8 +91,23 @@ x:300,
 y:120,
 vx:3,
 vy:2,
-hp:500,
+hp:800,
 phase:1
+}
+
+}
+
+function nextPhase(){
+
+phase++
+frame=0
+enemyBullets=[]
+enemies=[]
+
+if(phase<10){
+spawnWave()
+}else{
+spawnBoss()
 }
 
 }
@@ -112,14 +116,31 @@ function shootFlower(x,y,count,speed){
 
 for(let i=0;i<count;i++){
 
-let angle=i*(Math.PI*2/count)
+let a=i*(Math.PI*2/count)
+
+enemyBullets.push({
+x:x,
+y:y,
+vx:Math.cos(a)*speed,
+vy:Math.sin(a)*speed
+})
+
+}
+
+}
+
+function shootSpiral(x,y,rot){
+
+for(let i=0;i<8;i++){
+
+let a=rot+i*0.8
 
 enemyBullets.push({
 
 x:x,
 y:y,
-vx:Math.cos(angle)*speed,
-vy:Math.sin(angle)*speed
+vx:Math.cos(a)*2,
+vy:Math.sin(a)*2
 
 })
 
@@ -131,13 +152,35 @@ function playerShoot(){
 
 if(player.cool>0)return
 
+for(let i=0;i<player.power;i++){
+
 bullets.push({
-x:player.x,
+x:player.x+(i*10)-(player.power*5),
 y:player.y,
 vy:-8
 })
 
-player.cool=20
+}
+
+player.cool=15
+
+}
+
+function explode(x,y){
+
+for(let i=0;i<10;i++){
+
+effects.push({
+
+x:x,
+y:y,
+vx:(Math.random()*4-2),
+vy:(Math.random()*4-2),
+life:30
+
+})
+
+}
 
 }
 
@@ -172,33 +215,15 @@ e.y+=e.vy
 if(e.x<20||e.x>580)e.vx*=-1
 if(e.y<20||e.y>320)e.vy*=-1
 
-if(frame%(120-phase*5)==0){
+if(frame%(100-phase*4)==0){
 
 if(e.type=="small"){
-
 shootFlower(e.x,e.y,6+phase,2)
-
 }
 
 if(e.type=="mid"){
-
-shootFlower(e.x,e.y,12+phase,2)
-
-if(frame%200==0){
-
-let dx=player.x-e.x
-let dy=player.y-e.y
-let d=Math.hypot(dx,dy)
-
-enemyBullets.push({
-x:e.x,
-y:e.y,
-vx:dx/d*4,
-vy:dy/d*4
-})
-
-}
-
+shootFlower(e.x,e.y,16,2)
+shootSpiral(e.x,e.y,frame*0.05)
 }
 
 }
@@ -215,10 +240,8 @@ if(boss.y<40||boss.y>260)boss.vy*=-1
 
 if(boss.phase==1){
 
-if(frame%70==0){
-
-shootFlower(boss.x,boss.y,24,2)
-
+if(frame%50==0){
+shootFlower(boss.x,boss.y,30,2)
 }
 
 if(frame%120==0){
@@ -233,43 +256,27 @@ split:true
 
 }
 
-if(boss.hp<250){
-
+if(boss.hp<400){
 boss.phase=2
-
 }
 
-}
+}else{
 
-else{
-
-if(frame%80==0){
-
-enemyBullets.push({
-x:boss.x,
-y:boss.y,
-vx:3,
-vy:2,
-bounce:true
-})
-
+if(frame%40==0){
+shootFlower(boss.x,boss.y,40,3)
 }
 
 if(frame%200==0){
 
-shootFlower(boss.x,boss.y,36,3)
-
-}
-
-if(frame%300==0){
-
 enemies.push({
+
 x:boss.x,
 y:boss.y,
 vx:2,
 vy:1,
-hp:3,
+hp:5,
 type:"small"
+
 })
 
 }
@@ -289,9 +296,15 @@ bullets.splice(bi,1)
 
 if(e.hp<=0){
 
-if(Math.random()<0.1){
+explode(e.x,e.y)
 
-items.push({x:e.x,y:e.y})
+if(Math.random()<0.2){
+
+items.push({
+x:e.x,
+y:e.y,
+type:Math.random()<0.5?"heal":"power"
+})
 
 }
 
@@ -313,7 +326,6 @@ bullets.splice(bi,1)
 if(boss.hp<=0){
 
 alert("GAME CLEAR")
-
 location.reload()
 
 }
@@ -333,19 +345,12 @@ shootFlower(b.x,b.y,10,2)
 
 }
 
-if(b.bounce){
+if(Math.hypot(b.x-player.x,b.y-player.y)<8){
 
-if(b.x<0||b.x>canvas.width)b.vx*=-1
-if(b.y<0||b.y>canvas.height)b.vy*=-1
-
-}
-
-if(Math.hypot(b.x-player.x,b.y-player.y)<10){
-
-player.lives--
+player.hp-=10
 enemyBullets.splice(i,1)
 
-if(player.lives<=0){
+if(player.hp<=0){
 
 alert("GAME OVER")
 location.reload()
@@ -362,20 +367,33 @@ it.y+=2
 
 if(Math.hypot(it.x-player.x,it.y-player.y)<15){
 
-player.lives++
+if(it.type=="heal"){
+
+player.hp=Math.min(player.maxHp,player.hp+30)
+
+}else{
+
+player.power=Math.min(5,player.power+1)
+
+}
+
 items.splice(i,1)
 
 }
 
 })
 
-if(enemies.length==0 && !boss && phase<10){
+effects.forEach((e,i)=>{
 
-spawnWave()
+e.x+=e.vx
+e.y+=e.vy
+e.life--
 
-}
+if(e.life<=0)effects.splice(i,1)
 
-if(enemies.length==0 && phase<10 && frame>200){
+})
+
+if(enemies.length==0 && !boss){
 
 nextPhase()
 
@@ -395,7 +413,7 @@ ctx.lineTo(600,350)
 ctx.stroke()
 
 ctx.fillStyle="cyan"
-ctx.fillRect(player.x-8,player.y-8,16,16)
+ctx.fillRect(player.x-6,player.y-6,12,12)
 
 ctx.fillStyle="yellow"
 bullets.forEach(b=>{
@@ -405,7 +423,7 @@ ctx.fillRect(b.x-2,b.y-8,4,8)
 ctx.fillStyle="red"
 enemyBullets.forEach(b=>{
 ctx.beginPath()
-ctx.arc(b.x,b.y,4,0,Math.PI*2)
+ctx.arc(b.x,b.y,3,0,Math.PI*2)
 ctx.fill()
 })
 
@@ -431,9 +449,23 @@ ctx.fillRect(i.x-6,i.y-6,12,12)
 })
 
 ctx.fillStyle="white"
+effects.forEach(e=>{
+ctx.fillRect(e.x,e.y,2,2)
+})
+
+ctx.fillStyle="white"
 ctx.font="18px Arial"
-ctx.fillText("Lives: "+player.lives,10,20)
-ctx.fillText("Phase: "+phase,500,20)
+
+ctx.fillText("PHASE "+phase+" / 10",10,20)
+ctx.fillText("ENEMIES "+enemies.length,10,40)
+
+ctx.fillText("HP",470,20)
+
+ctx.fillStyle="red"
+ctx.fillRect(500,10,80,10)
+
+ctx.fillStyle="lime"
+ctx.fillRect(500,10,80*(player.hp/player.maxHp),10)
 
 }
 

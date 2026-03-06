@@ -2,276 +2,231 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>Brutal Danmaku Invader</title>
+<title>Bullet Hell Game</title>
 <style>
-body{margin:0;background:black;color:white;font-family:monospace;text-align:center}
-canvas{background:#000;display:block;margin:auto;image-rendering:pixelated}
-#ui{position:absolute;top:10px;left:10px;font-size:18px}
-#startScreen{position:absolute;top:0;left:0;right:0;bottom:0;display:flex;flex-direction:column;justify-content:center;align-items:center;background:black}
-button{font-size:24px;padding:10px 30px;cursor:pointer}
+body{
+margin:0;
+background:black;
+overflow:hidden;
+}
+canvas{
+display:block;
+margin:auto;
+background:#000;
+}
 </style>
 </head>
+
 <body>
-
-<div id="ui">
-HP <span id="hp">100</span><br>
-Lives <span id="lives">10</span><br>
-Score <span id="score">0</span><br>
-Phase <span id="phase">1</span>
-</div>
-
-<div id="startScreen">
-<h1>BRUTAL DANMAKU</h1>
-<button onclick="startGame()">START GAME</button>
-<p>Move: ← →</p>
-<p>Shoot: SPACE</p>
-<p>Pause: P</p>
-</div>
-
-<canvas id="game" width="800" height="600"></canvas>
+<canvas id="game"></canvas>
 
 <script>
 
-const canvas=document.getElementById("game")
-const ctx=canvas.getContext("2d")
+const canvas = document.getElementById("game")
+const ctx = canvas.getContext("2d")
 
-let gameRunning=false
-let paused=false
+canvas.width = 600
+canvas.height = 700
 
-let score=0
-let phase=1
+let keys = {}
 
-const player={x:400,y:520,size:16,hit:4,hp:100,lives:10,fireCooldown:0,inv:0}
+document.addEventListener("keydown",e=>keys[e.key]=true)
+document.addEventListener("keyup",e=>keys[e.key]=false)
 
-const bullets=[]
-const enemyBullets=[]
-const enemies=[]
-const items=[]
-const explosions=[]
-
-const keys={}
-
-addEventListener("keydown",e=>{
-keys[e.key]=true
-if(e.key==="p") paused=!paused
-})
-
-addEventListener("keyup",e=>keys[e.key]=false)
-
-function startGame(){
-document.getElementById("startScreen").style.display="none"
-spawnEnemies()
-gameRunning=true
-loop()
-}
-
-function spawnEnemies(){
-
-// 雑魚敵
-for(let i=0;i<8+phase;i++){
-
-enemies.push({
-x:80+i*70%700,
-y:80+Math.random()*80,
-hp:40+phase*10,
+let player={
+x:300,
+y:600,
+speed:4,
 cool:0,
-type:"mob",
-moveSeed:Math.random()*1000
-
-})
-
+lives:3
 }
 
-// 中ボス
-if(phase%4===0 && phase<10){
+let bullets=[]
+let enemyBullets=[]
+let enemies=[]
+let items=[]
+let boss=null
 
+let frame=0
+
+function spawnEnemy(){
+
+if(frame%90==0){
 enemies.push({
-x:400,
+x:Math.random()*560+20,
+y:-20,
+hp:3,
+type:"small"
+})
+}
+
+if(frame%900==0){
+enemies.push({
+x:300,
+y:100,
+hp:50,
+type:"mid"
+})
+}
+
+if(frame==3000){
+boss={
+x:300,
 y:120,
-hp:400,
-cool:0,
-type:"midboss",
-form:1,
-moveSeed:Math.random()*1000
+hp:200,
+phase:1
+}
+}
 
+}
+
+function shootFlower(x,y,count,speed){
+
+for(let i=0;i<count;i++){
+
+let angle=i*(Math.PI*2/count)
+
+enemyBullets.push({
+x:x,
+y:y,
+vx:Math.cos(angle)*speed,
+vy:Math.sin(angle)*speed
 })
 
 }
 
-// ラスボス
-if(phase===10){
+}
 
-enemies.push({
-x:400,
-y:120,
-hp:1200,
-cool:0,
-type:"final",
-form:1,
-moveSeed:Math.random()*1000
+function playerShoot(){
+
+if(player.cool>0)return
+
+bullets.push({
+x:player.x,
+y:player.y,
+vy:-7
 })
 
-}
-
-}
-
-function shoot(){
-
-bullets.push({x:player.x,y:player.y-10,vy:-9})
+player.cool=15
 
 }
 
 function update(){
 
-if(keys["ArrowLeft"]) player.x-=6
-if(keys["ArrowRight"]) player.x+=6
+frame++
 
-player.x=Math.max(20,Math.min(780,player.x))
+spawnEnemy()
 
-if(player.fireCooldown>0) player.fireCooldown--
-if(player.inv>0) player.inv--
+if(keys["ArrowLeft"])player.x-=player.speed
+if(keys["ArrowRight"])player.x+=player.speed
+if(keys["ArrowUp"])player.y-=player.speed
+if(keys["ArrowDown"])player.y+=player.speed
 
-if(keys[" "] && player.fireCooldown<=0){
-shoot()
-player.fireCooldown=20
-}
+if(keys[" "])playerShoot()
+
+player.cool--
 
 bullets.forEach(b=>b.y+=b.vy)
 
 enemyBullets.forEach(b=>{
 b.x+=b.vx
 b.y+=b.vy
-
-// 壁反射弾
-if(b.reflect){
-if(b.x<0||b.x>800) b.vx*=-1
-}
-
 })
 
-items.forEach(i=>i.y+=2)
+enemies.forEach(e=>{
 
-for(let e of enemies){
+if(e.type=="small"){
 
-// 移動
-if(e.type==="mob"){
-e.x+=Math.sin(Date.now()/300+e.moveSeed)*1.5
-}
+e.y+=1
 
-if(e.type==="midboss"||e.type==="final"){
-e.x+=Math.sin(Date.now()/200+e.moveSeed)*3
-}
-
-if(e.x<40) e.x=40
-if(e.x>760) e.x=760
-
-
-if(e.cool<=0){
-firePattern(e)
-e.cool=60
-}else e.cool--
-
-}
-
-checkCollisions()
-
-if(enemies.length===0 && phase<10){
-phase++
-spawnEnemies()
+if(frame%120==0){
+shootFlower(e.x,e.y,6,2)
 }
 
 }
 
-function firePattern(e){
+if(e.type=="mid"){
 
-// 雑魚は直線攻撃
-if(e.type==="mob"){
+if(frame%100==0){
+shootFlower(e.x,e.y,12,2)
+}
+
+if(frame%150==0){
+
+let dx=player.x-e.x
+let dy=player.y-e.y
+let d=Math.hypot(dx,dy)
 
 enemyBullets.push({
 x:e.x,
 y:e.y,
-vx:0,
-vy:4
+vx:dx/d*4,
+vy:dy/d*4
 })
 
 }
 
-// 中ボス 花弾幕
-if(e.type==="midboss"){
+if(frame%200==0){
 
-for(let i=0;i<16;i++){
-
-const a=i*Math.PI*2/16+Date.now()/400
-
-
+for(let i=0;i<8;i++){
+let a=i*0.4
 enemyBullets.push({
 x:e.x,
 y:e.y,
-vx:Math.cos(a)*2.5,
-vy:Math.sin(a)*2.5
+vx:Math.cos(a+frame*0.1)*2,
+vy:Math.sin(a+frame*0.1)*2
+})
+}
+
+}
+
+}
 
 })
 
-}
+if(boss){
 
-}
+if(boss.phase==1){
 
-// ラスボス特殊攻撃
-if(e.type==="final"){
+if(frame%80==0)shootFlower(boss.x,boss.y,16,2)
 
-// 花弾幕
-for(let i=0;i<20;i++){
-
-const a=i*Math.PI*2/20+Date.now()/300
-
+if(frame%120==0){
 
 enemyBullets.push({
-x:e.x,
-y:e.y,
-vx:Math.cos(a)*3,
-vy:Math.sin(a)*3
-
-})
-
-}
-
-// 分裂弾
-if(Math.random()<0.4){
-
-enemyBullets.push({
-x:e.x,
-y:e.y,
+x:boss.x,
+y:boss.y,
 vx:0,
 vy:3,
 split:true
-
 })
 
 }
 
-// 壁反射弾
-if(Math.random()<0.3){
+if(boss.hp<100)boss.phase=2
+
+}
+
+else{
+
+if(frame%70==0){
 
 enemyBullets.push({
-x:e.x,
-y:e.y,
+x:boss.x,
+y:boss.y,
 vx:3,
 vy:2,
-reflect:true
+bounce:true
 })
 
 }
 
-// 子分召喚
-if(Math.random()<0.2){
+if(frame%200==0){
 
 enemies.push({
-x:e.x+Math.random()*80-40,
-y:e.y+40,
-hp:30,
-cool:40,
-type:"mob",
-moveSeed:Math.random()*1000
+x:boss.x,
+y:boss.y,
+hp:2,
+type:"small"
 })
 
 }
@@ -279,39 +234,26 @@ moveSeed:Math.random()*1000
 }
 
 }
-
-function checkCollisions(){
 
 bullets.forEach((b,bi)=>{
 
 enemies.forEach((e,ei)=>{
 
-if(Math.abs(b.x-e.x)<20 && Math.abs(b.y-e.y)<20){
+if(Math.hypot(b.x-e.x,b.y-e.y)<15){
 
+e.hp--
 bullets.splice(bi,1)
-e.hp-=10
 
 if(e.hp<=0){
 
-score+=100
-createExplosion(e.x,e.y)
+if(Math.random()<0.1){
 
-// 第二形態
-if((e.type==="midboss"||e.type==="final") && e.form===1){
-
-e.form=2
-
-e.hp=400
-return
+items.push({
+x:e.x,
+y:e.y
+})
 
 }
-
-let drop=Math.random()
-
-if(drop<0.40) items.push({x:e.x,y:e.y,type:"heal"})
-else if(drop<0.43) items.push({x:e.x,y:e.y,type:"life"})
-else if(drop<0.55) items.push({x:e.x,y:e.y,type:"shield"})
-
 
 enemies.splice(ei,1)
 
@@ -321,165 +263,115 @@ enemies.splice(ei,1)
 
 })
 
+if(boss){
+
+if(Math.hypot(b.x-boss.x,b.y-boss.y)<30){
+
+boss.hp--
+bullets.splice(bi,1)
+
+}
+
+}
+
 })
 
-enemyBullets.forEach((b,bi)=>{
+enemyBullets.forEach((b,i)=>{
 
-// 分裂弾
-if(b.split && b.y>300){
+if(b.split && b.y>350){
 
 b.split=false
 
-for(let i=0;i<6;i++){
-
-const a=i*Math.PI*2/6
-
-enemyBullets.push({
-x:b.x,
-y:b.y,
-vx:Math.cos(a)*3,
-vy:Math.sin(a)*3
-
-})
+shootFlower(b.x,b.y,8,2)
 
 }
 
+if(b.bounce){
+
+if(b.x<0||b.x>canvas.width)b.vx*=-1
+if(b.y<0||b.y>canvas.height)b.vy*=-1
+
 }
 
-
-const dx=b.x-player.x
-const dy=b.y-player.y
-
-if(Math.sqrt(dx*dx+dy*dy)<player.hit && player.inv<=0){
-
-enemyBullets.splice(bi,1)
-player.hp-=10
-player.inv=90
-
-if(player.hp<=0){
+if(Math.hypot(b.x-player.x,b.y-player.y)<12){
 
 player.lives--
-player.hp=100
-player.x=400
-enemyBullets.length=0
-
-if(player.lives<=0){
-alert("GAME OVER")
-location.reload()
-}
-
-}
+enemyBullets.splice(i,1)
 
 }
 
 })
 
-items.forEach((i,ii)=>{
+items.forEach((it,i)=>{
 
-if(Math.abs(i.x-player.x)<20 && Math.abs(i.y-player.y)<20){
+it.y+=2
 
-if(i.type==="heal") player.hp=Math.min(100,player.hp+30)
-if(i.type==="life") player.lives++
-if(i.type==="shield") player.inv=180
+if(Math.hypot(it.x-player.x,it.y-player.y)<15){
 
-items.splice(ii,1)
+player.lives++
+items.splice(i,1)
 
 }
-
-if(i.y>620) items.splice(ii,1)
 
 })
-
-}
-
-function createExplosion(x,y){
-
-for(let i=0;i<12;i++){
-
-explosions.push({x:x,y:y,vx:(Math.random()-0.5)*5,vy:(Math.random()-0.5)*5,life:30})
-
-}
-
-}
-
-function drawPlayer(){
-
-ctx.fillStyle="cyan"
-ctx.fillRect(player.x-8,player.y-8,16,16)
-
-ctx.fillStyle="white"
-ctx.fillRect(player.x-2,player.y-2,4,4)
-
-}
-
-function drawEnemy(e){
-
-if(e.type==="mob") ctx.fillStyle="red"
-if(e.type==="midboss") ctx.fillStyle="purple"
-if(e.type==="final") ctx.fillStyle="orange"
-
-ctx.fillRect(e.x-12,e.y-12,24,24)
 
 }
 
 function draw(){
 
-ctx.clearRect(0,0,800,600)
+ctx.fillStyle="black"
+ctx.fillRect(0,0,canvas.width,canvas.height)
 
-drawPlayer()
+ctx.fillStyle="cyan"
+ctx.fillRect(player.x-8,player.y-8,16,16)
 
 ctx.fillStyle="yellow"
-bullets.forEach(b=>ctx.fillRect(b.x-2,b.y-6,4,8))
+bullets.forEach(b=>{
+ctx.fillRect(b.x-2,b.y-6,4,8)
+})
 
-ctx.fillStyle="pink"
-enemyBullets.forEach(b=>ctx.fillRect(b.x-3,b.y-3,6,6))
-
-enemies.forEach(drawEnemy)
-
-items.forEach(i=>{
-ctx.fillStyle = i.type==="life" ? "cyan" : (i.type==="shield" ? "yellow" : "lime")
-ctx.fillRect(i.x-6,i.y-6,12,12)
+ctx.fillStyle="red"
+enemyBullets.forEach(b=>{
+ctx.beginPath()
+ctx.arc(b.x,b.y,4,0,Math.PI*2)
+ctx.fill()
 })
 
 ctx.fillStyle="orange"
-
-explosions.forEach((e,ei)=>{
-
-ctx.fillRect(e.x,e.y,3,3)
-
-e.x+=e.vx
-
-e.y+=e.vy
-
-e.life--
-
-if(e.life<=0) explosions.splice(ei,1)
-
+enemies.forEach(e=>{
+ctx.beginPath()
+ctx.arc(e.x,e.y,12,0,Math.PI*2)
+ctx.fill()
 })
 
+if(boss){
 
-document.getElementById("hp").textContent=player.hp
-
-document.getElementById("lives").textContent=player.lives
-
-document.getElementById("score").textContent=score
-
-document.getElementById("phase").textContent=phase
+ctx.fillStyle="purple"
+ctx.beginPath()
+ctx.arc(boss.x,boss.y,40,0,Math.PI*2)
+ctx.fill()
 
 }
 
-function loop(){
+ctx.fillStyle="lime"
+items.forEach(i=>{
+ctx.fillRect(i.x-6,i.y-6,12,12)
+})
 
-if(!gameRunning) return
+ctx.fillStyle="white"
+ctx.fillText("Lives:"+player.lives,10,20)
 
-if(!paused){
+}
+
+function gameLoop(){
+
 update()
 draw()
-}
-
-requestAnimationFrame(loop)
+requestAnimationFrame(gameLoop)
 
 }
+
+gameLoop()
 
 </script>
 </body>

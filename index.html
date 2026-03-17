@@ -1,3 +1,8 @@
+diff --git a/index.html b/index.html
+index e654a2eeea26c00c301caa97cc0515e6e12e33b3..e2a1328926f1afbc62626df1d5d256963c7adb1e 100644
+--- a/index.html
++++ b/index.html
+@@ -1,921 +1,509 @@
 - <!DOCTYPE html>
 --<html>
 -+<html lang="ja">
@@ -979,13 +984,16 @@
 +<body>
 +  <div class="wrap">
 +    <h1 class="title">COSMIC DANMAKU INVADER</h1>
-+    <p class="sub">← → 移動 / SPACE 攻撃 / ENTER で開始・再挑戦</p>
++    <p class="sub">← → 移動 / SPACE 攻撃 / SPACE/ENTER で開始・再挑戦</p>
 +    <canvas id="game" width="480" height="600"></canvas>
 +  </div>
 +
 +  <script>
 +    const canvas = document.getElementById("game");
 +    const ctx = canvas.getContext("2d");
++    if (!ctx) {
++      throw new Error("Canvas 2D context is not supported in this browser.");
++    }
 +    const W = canvas.width;
 +    const H = canvas.height;
 +
@@ -1389,7 +1397,7 @@
 +      drawStars();
 +
 +      if (state.mode === "start") {
-+        drawOverlay("PRESS ENTER", "鬼畜弾幕インベーダーへようこそ", "← → で移動、SPACEで連射");
++        drawOverlay("PRESS SPACE / ENTER", "鬼畜弾幕インベーダーへようこそ", "← → で移動、SPACEで連射");
 +        return;
 +      }
 +
@@ -1405,13 +1413,17 @@
 +      }
 +
 +      if (state.mode === "gameover") {
-+        drawOverlay("GAME OVER", `到達フェーズ ${state.phase} / SCORE ${state.score}`, "ENTERで再挑戦");
++        drawOverlay("GAME OVER", `到達フェーズ ${state.phase} / SCORE ${state.score}`, "SPACEかENTERで再挑戦");
 +      }
 +    }
 +
++    function shouldConfirmAction() {
++      return !!(keys.Enter || keys[" "]);
++    }
++
 +    function gameLoop() {
-+      if (state.mode === "start" && keys.Enter) resetGame();
-+      if (state.mode === "gameover" && keys.Enter) resetGame();
++      if (state.mode === "start" && shouldConfirmAction()) resetGame();
++      if (state.mode === "gameover" && shouldConfirmAction()) resetGame();
 +      update();
 +      draw();
 +      requestAnimationFrame(gameLoop);
